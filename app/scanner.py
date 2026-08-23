@@ -325,8 +325,9 @@ class Scanner:
     def handle_event(self, payload):
         """Handle a notification from Emby, Jellyfin or Jellyseerr.
 
-        We look for the file path first, then the TMDB id. If the entry is not
-        in the database yet, its folder is read on the spot.
+        The reported file path is the good case: it tells us which library the
+        item belongs to, so only that one folder has to be read. The TMDB id is
+        the fallback for senders that give no path at all.
         """
         path = _dig(payload, ["Item", "Path"]) or _dig(payload, ["Path"]) \
             or _dig(payload, ["media", "path"])
@@ -338,16 +339,29 @@ class Scanner:
         title = (_dig(payload, ["Item", "Name"]) or _dig(payload, ["Name"])
                  or _dig(payload, ["subject"]) or "?")
 
-        rows = []
-        if path:
-            rows = self._rows_for_path(path)
+        lib = self._library_for(path) if path else None
+        rows = self._rows_for_path(path, lib) if path else []
         if not rows and tmdb_id:
             rows = db.find_by_tmdb(tmdb_id)
+
+        # Emby adds the media file first and writes the NFO a moment later, so
+        # a webhook that arrives in between finds nothing yet. Waiting and
+        # looking again is far cheaper than reading the whole library, and it
+        # is what turns "no matching entry found" into a normal hit.
+        if not rows and path and lib is not None:
+            rows = self._wait_for_nfo(path, lib, tmdb_id, title)
+
         if not rows and tmdb_id:
-            # Still nothing in the database: read everything once
-            db.log("info", "Webhook: {} unknown, reading the libraries".format(title),
-                   "webhook")
-            self.scan_all()
+            # Last resort. With a known library only that one is read; without
+            # a usable path there is nothing to narrow it down to.
+            if lib is not None:
+                db.log("info", "Webhook: {} still unknown, reading '{}'"
+                       .format(title, _row_value(lib, "name")), "webhook")
+                self.scan_library(lib)
+            else:
+                db.log("info", "Webhook: {} has no usable path, reading every library"
+                       .format(title), "webhook")
+                self.scan_all()
             rows = db.find_by_tmdb(tmdb_id)
 
         if not rows:
@@ -361,54 +375,90 @@ class Scanner:
         db.log("info", "Webhook: {} -> {}".format(title, results[0]["status"]), "webhook")
         return {"matched": len(rows), "title": title, "results": results}
 
-    def _rows_for_path(self, path):
+    def _wait_steps(self):
+        """Growing pauses that add up to the configured waiting time."""
+        try:
+            total = int(self.get("webhook_wait", "60") or 60)
+        except (TypeError, ValueError):
+            total = 60
+        steps, spent = [], 0
+        for delay in (2, 3, 5, 10, 20, 30, 30, 30):
+            if spent >= total:
+                break
+            steps.append(min(delay, total - spent))
+            spent += steps[-1]
+        return steps
+
+    def _wait_for_nfo(self, path, lib, tmdb_id, title):
+        """Look again a few times while the media server catches up."""
+        waited = 0
+        for delay in self._wait_steps():
+            if self._stop.is_set():
+                break
+            time.sleep(delay)
+            waited += delay
+            rows = self._rows_for_path(path, lib)
+            if not rows and tmdb_id:
+                rows = db.find_by_tmdb(tmdb_id)
+            if rows:
+                db.log("info", "Webhook: NFO for {} appeared after {}s".format(title, waited),
+                       "webhook")
+                return rows
+        return []
+
+    def _rows_for_path(self, path, lib=None):
         """Find the entries a reported file belongs to.
 
-        For a movie that is its own folder. For a series the notification often
-        points at an episode file several levels down, so we walk up towards the
-        library root looking for the tvshow.nfo.
+        For a movie that is its own folder. For a series the notification points
+        at an episode file several levels down, so we walk up towards the
+        library root - first through the database, then looking for the
+        tvshow.nfo on disk. Neither case reads more than it has to.
         """
-        folder = str(Path(path).parent)
-        rows = db.find_by_folder(folder)
+        target = Path(path)
+        folder = target if target.is_dir() else target.parent
+        rows = db.find_by_folder(str(folder))
         if rows:
             return rows
 
-        lib = self._library_for(path)
+        if lib is None:
+            lib = self._library_for(path)
         if lib is None:
             return []
         kind = _row_value(lib, "kind") or "movie"
+        lib_id = _row_value(lib, "id")
         root = Path(_row_value(lib, "path") or "/")
 
         if kind == "tv":
-            current = Path(path).parent
-            while True:
-                rows = db.find_by_folder(str(current))
-                if rows:
-                    return rows
-                if current == root or current.parent == current \
-                        or root not in current.parents:
-                    break
-                current = current.parent
-
-        # Not known yet: read just this folder.
-        target = str(Path(path).parent) if kind == "movie" else str(root)
-        only_names = {nfo.TV_NFO_NAME} if kind == "tv" else None
-        for nfo_path, mtime, size in nfo.walk_nfo_files(target, only_names=only_names):
-            data = nfo.parse_nfo(nfo_path, kind)
-            if data:
-                db.upsert_movie(nfo_path, str(Path(nfo_path).parent), data, mtime, size,
-                                library_id=_row_value(lib, "id"))
-        rows = db.find_by_folder(folder)
-        if rows:
-            return rows
-        if kind == "tv":
-            for parent in [Path(path).parent, *Path(path).parents]:
+            for parent in _ancestors(folder, root):
                 rows = db.find_by_folder(str(parent))
                 if rows:
                     return rows
-                if parent == root:
-                    break
-        return []
+            for parent in _ancestors(folder, root):
+                candidate = parent / nfo.TV_NFO_NAME
+                if self._adopt(candidate, parent, lib_id, "tv"):
+                    return db.find_by_folder(str(parent))
+            return []
+
+        # Movie: read this one folder, nothing else.
+        for nfo_path, mtime, size in nfo.walk_nfo_files(str(folder)):
+            data = nfo.parse_nfo(nfo_path, "movie")
+            if data:
+                db.upsert_movie(nfo_path, str(Path(nfo_path).parent), data, mtime, size,
+                                library_id=lib_id)
+        return db.find_by_folder(str(folder))
+
+    def _adopt(self, nfo_path, folder, lib_id, kind):
+        """Read a single NFO into the database. True when it worked."""
+        try:
+            stat = nfo_path.stat()
+        except OSError:
+            return False
+        data = nfo.parse_nfo(nfo_path, kind)
+        if not data:
+            return False
+        db.upsert_movie(str(nfo_path), str(folder), data, stat.st_mtime, stat.st_size,
+                        library_id=lib_id)
+        return True
 
     def _library_for(self, path):
         """Which configured library does this path sit in?"""
@@ -450,6 +500,18 @@ class Scanner:
 
         self._scheduler = threading.Thread(target=loop, daemon=True)
         self._scheduler.start()
+
+
+def _ancestors(folder, root):
+    """The folder itself and every parent up to the library root, closest first."""
+    current = Path(folder)
+    seen = []
+    while True:
+        seen.append(current)
+        if current == root or current.parent == current or root not in current.parents:
+            break
+        current = current.parent
+    return seen
 
 
 def _dig(data, keys):

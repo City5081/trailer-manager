@@ -67,6 +67,7 @@ DEFAULTS = {
     "scan_interval_hours": str(_int("SCAN_INTERVAL_HOURS", 12)),
     "scan_on_start": "1" if _bool("SCAN_ON_START", True) else "0",
     "recheck_days": str(_int("RECHECK_DAYS", 30)),
+    "webhook_wait": str(_int("WEBHOOK_WAIT", 60)),
     "ui_language": os.environ.get("UI_LANGUAGE", "de"),
     "overwrite_existing": "0",
 }

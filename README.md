@@ -144,6 +144,7 @@ you need them.
 | `SCAN_INTERVAL_HOURS` | interval, `0` disables the schedule |
 | `SCAN_ON_START` | run once when the container starts |
 | `RECHECK_DAYS` | retry movies without a hit after this many days |
+| `WEBHOOK_WAIT` | seconds to keep looking for a late NFO (default 60) |
 | `UI_LANGUAGE` | `de` or `en` |
 | `WEBHOOK_TOKEN` | empty = generated on first start |
 | `AUTH_DISABLED` | `true` only when an auth proxy handles the login |
@@ -182,9 +183,14 @@ notification type *Item Added*, item type *Movies*.
 **Jellyseerr** — Settings → Notifications → Webhook, trigger *Media Available*.
 
 The item is matched by the file path from the notification first, then by TMDB
-id; if it is still unknown, its folder is read on the spot. For a series the
-notification usually points at an episode file, so the path is walked upwards
-towards the library root until the `tvshow.nfo` is found.
+id. The path also says which library it belongs to, so only that one folder is
+read — never the whole collection. For a series the notification points at an
+episode file, so the path is walked upwards until the `tvshow.nfo` turns up.
+
+Emby creates the video file first and writes the NFO shortly after, so a webhook
+often arrives while there is still nothing to find. Instead of giving up, the
+folder is checked again a few times over the next minute (*Settings → Wait for
+the NFO after a webhook*, `0` turns it off).
 
 ### Did it arrive?
 

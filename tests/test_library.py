@@ -137,3 +137,73 @@ def test_the_path_decides_which_library_a_webhook_belongs_to(tmp_path, library, 
         assert found["id"] == inner_id
     finally:
         db.delete_library(inner_id)
+
+
+def test_a_movie_webhook_reads_only_its_own_folder(tmp_path, library, monkeypatch):
+    """The reported path pins down the folder - nothing else may be touched."""
+    wanted = tmp_path / "New Film (2024)"
+    wanted.mkdir()
+    (wanted / "movie.nfo").write_text(
+        '<movie><title>New Film</title><uniqueid type="tmdb">77</uniqueid></movie>',
+        encoding="utf-8")
+    other = tmp_path / "Other Film (2001)"
+    other.mkdir()
+    (other / "movie.nfo").write_text("<movie><title>Other</title></movie>",
+                                     encoding="utf-8")
+
+    s = scanner_mod.Scanner(settings())
+    walked = []
+    real_walk = nfo.walk_nfo_files
+    monkeypatch.setattr(nfo, "walk_nfo_files",
+                        lambda root, *a, **k: walked.append(str(root)) or real_walk(root, *a, **k))
+
+    rows = s._rows_for_path(str(wanted / "New Film.mkv"), library)
+    assert [r["title"] for r in rows] == ["New Film"]
+    assert walked == [str(wanted)]                  # not the library root
+    assert db.get_movie(str(other / "movie.nfo")) is None
+
+
+def test_a_series_webhook_walks_up_to_the_tvshow_nfo(tmp_path, tv_library):
+    """Emby reports the episode file; the trailer belongs on the series."""
+    show = write_show(tmp_path, "Deep Show", "1396")
+    episode = show.parent / "Season 01" / "S01E01.mkv"
+
+    s = scanner_mod.Scanner(settings())
+    rows = s._rows_for_path(str(episode), tv_library)
+    assert [r["title"] for r in rows] == ["Deep Show"]
+    assert rows[0]["path"] == str(show)
+
+
+def test_the_wait_is_configurable_and_can_be_switched_off():
+    s = scanner_mod.Scanner(settings(webhook_wait="60"))
+    assert sum(s._wait_steps()) == 60
+
+    s = scanner_mod.Scanner(settings(webhook_wait="7"))
+    assert sum(s._wait_steps()) == 7        # never longer than asked for
+
+    s = scanner_mod.Scanner(settings(webhook_wait="0"))
+    assert s._wait_steps() == []
+
+    s = scanner_mod.Scanner(settings(webhook_wait="nonsense"))
+    assert sum(s._wait_steps()) == 60       # falls back to the default
+
+
+def test_a_late_nfo_is_picked_up_after_waiting(tmp_path, library, monkeypatch):
+    """The webhook arrives before the NFO exists - the retry has to find it."""
+    folder = tmp_path / "Late Film (2024)"
+    folder.mkdir()
+    s = scanner_mod.Scanner(settings(webhook_wait="5"))
+
+    written = {"done": False}
+
+    def fake_sleep(_seconds):
+        # Stand in for the media server writing the NFO between two attempts.
+        if not written["done"]:
+            (folder / "movie.nfo").write_text(
+                '<movie><title>Late Film</title><uniqueid type="tmdb">88</uniqueid></movie>',
+                encoding="utf-8")
+            written["done"] = True
+
+    monkeypatch.setattr(scanner_mod.time, "sleep", fake_sleep)
+    rows = s._wait_for_nfo(str(folder / "Late Film.mkv"), library, "88", "Late Film")
+    assert [r["title"] for r in rows] == ["Late Film"]

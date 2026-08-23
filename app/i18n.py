@@ -120,6 +120,11 @@ STRINGS = {
         "settings.interval": "Intervall (Stunden, 0 = aus)",
         "settings.scan_on_start": "beim Start einmal durchlaufen",
         "settings.recheck": "Filme ohne Treffer erneut pruefen nach (Tagen)",
+        "settings.webhook_wait": "Nach einer Webhook-Meldung auf die NFO warten (Sekunden)",
+        "settings.webhook_wait_hint": "Emby legt erst die Videodatei an und schreibt "
+                                      "die NFO kurz danach. In der Zwischenzeit gibt "
+                                      "es nichts zu finden - deshalb wird mehrfach "
+                                      "nachgesehen. 0 schaltet das Warten ab.",
         "settings.ui": "Oberflaeche",
         "settings.ui_language": "Sprache",
         "settings.password": "Passwort",
@@ -326,6 +331,11 @@ STRINGS = {
         "settings.interval": "Interval (hours, 0 = off)",
         "settings.scan_on_start": "run once on startup",
         "settings.recheck": "recheck movies without a hit after (days)",
+        "settings.webhook_wait": "Wait for the NFO after a webhook (seconds)",
+        "settings.webhook_wait_hint": "Emby creates the video file first and writes "
+                                      "the NFO shortly after. In between there is "
+                                      "nothing to find, so we look again a few times. "
+                                      "0 turns the waiting off.",
         "settings.ui": "Interface",
         "settings.ui_language": "Language",
         "settings.password": "Password",

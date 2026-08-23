@@ -548,7 +548,7 @@ def status():
 @login_required
 def settings_page():
     keys_text = ["tmdb_api_key", "languages", "link_format", "scan_interval_hours",
-                 "recheck_days", "ui_language"]
+                 "recheck_days", "webhook_wait", "ui_language"]
     keys_flag = ["keep_format", "backup", "lockdata", "scan_on_start", "overwrite_existing"]
     if request.method == "POST":
         for key in keys_text:
