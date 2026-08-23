@@ -1,10 +1,10 @@
 #!/bin/sh
-# Startet die Anwendung unter der gewuenschten Benutzerkennung.
+# Start the application under the requested user id.
 #
-# Auf Unraid gehoeren die Filme dem Benutzer nobody (99:100). Laeuft der
-# Container als root, gehoeren neu geschriebene Dateien danach root - Emby kommt
-# dann nicht mehr heran. Deshalb werden Benutzer und Gruppe auf PUID/PGID
-# umgestellt und die Anwendung mit gosu abgegeben.
+# On Unraid the movies belong to nobody (99:100). If the container ran as root,
+# files written afterwards would belong to root and Emby could no longer touch
+# them. So user and group are switched to PUID/PGID and the application is
+# handed over with gosu.
 set -e
 
 PUID="${PUID:-99}"
@@ -18,13 +18,13 @@ if [ "$(id -u)" = "0" ]; then
         usermod -o -u "$PUID" app
     fi
 
-    # Nur /config anfassen - /movies kann Hunderttausende Dateien enthalten.
+    # Only touch /config - /movies can hold hundreds of thousands of files.
     chown -R app:app /config 2>/dev/null || \
-        echo "Hinweis: /config liess sich nicht uebereignen - Rechte pruefen."
+        echo "Note: /config could not be taken over - check the permissions."
 
-    echo "Starte als UID ${PUID}, GID ${PGID}."
+    echo "Starting as UID ${PUID}, GID ${PGID}."
     exec gosu app "$@"
 fi
 
-echo "Starte als UID $(id -u), GID $(id -g) (PUID/PGID werden nicht angewandt)."
+echo "Starting as UID $(id -u), GID $(id -g) (PUID/PGID are not applied)."
 exec "$@"

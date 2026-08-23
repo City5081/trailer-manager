@@ -44,7 +44,34 @@
 
 <div class="card">
   <h2>{{ t('settings.webhook') }}</h2>
-  <p class="hint">{{ t('settings.webhook_hint') }}</p>
-  <p class="mono break">{{ webhook_url }}</p>
+  <p class="hint">{{ t('webhook.hint') }}</p>
+  <p class="mono break url">{{ webhook_url }}</p>
+  <p class="hint">{{ t('webhook.token_note') }}</p>
+
+  <h2>{{ t('webhook.emby') }}</h2>
+  <ol class="steps">
+    <li>{{ t('webhook.emby_where') }}</li>
+    <li>{{ t('webhook.emby_event') }}</li>
+    <li>{{ t('webhook.emby_type') }}</li>
+    <li>{{ t('webhook.emby_limit') }}</li>
+  </ol>
+  <p class="hint">{{ t('webhook.emby_note') }}</p>
+
+  <h2>{{ t('webhook.jellyfin') }}</h2>
+  <p class="hint">{{ t('webhook.jellyfin_where') }}</p>
+
+  <h2>{{ t('webhook.jellyseerr') }}</h2>
+  <p class="hint">{{ t('webhook.jellyseerr_where') }}</p>
 </div>
+
+<form method="post" action="{{ url_for('settings_password') }}" class="card">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <h2>{{ t('settings.password') }}</h2>
+  <label>{{ t('settings.pw_current') }}<input name="current" type="password" autocomplete="current-password"></label>
+  <label>{{ t('settings.pw_new') }}<input name="password" type="password" autocomplete="new-password"></label>
+  <label>{{ t('setup.password_repeat') }}<input name="password_repeat" type="password" autocomplete="new-password"></label>
+  <div class="toolbar">
+    <button type="submit">{{ t('action.change_password') }}</button>
+  </div>
+</form>
 {% endblock %}

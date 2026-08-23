@@ -4,13 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ t('app.title') }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='logo.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <header>
   <div class="brand">
-    <strong>{{ t('app.title') }}</strong>
-    <span class="sub">{{ t('app.subtitle') }}</span>
+    <img class="logo" src="{{ url_for('static', filename='logo.svg') }}" alt="" width="30" height="30">
+    <span>
+      <strong>{{ t('app.title') }}</strong>
+      <span class="sub">{{ t('app.subtitle') }}</span>
+    </span>
   </div>
   <nav>
     {% if session.get('user') or auth_disabled %}
@@ -50,13 +54,13 @@ async function poll() {
     const el = document.getElementById('statusline');
     if (d.busy) {
       const s = d.state;
-      el.textContent = s.phase + ' \u2014 ' + s.done + '/' + s.total + ' ' + (s.current || '');
+      el.textContent = s.phase + ' — ' + s.done + '/' + s.total + ' ' + (s.current || '');
       el.className = 'busy';
     } else {
       el.textContent = '{{ t("status.idle") }}';
       el.className = '';
     }
-  } catch (e) { /* Oberflaeche laeuft auch ohne Statusanzeige weiter */ }
+  } catch (e) { /* the interface keeps working without the status line */ }
 }
 poll(); setInterval(poll, 3000);
 </script>

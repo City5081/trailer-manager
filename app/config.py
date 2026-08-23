@@ -1,4 +1,10 @@
-"""Konfiguration aus Umgebungsvariablen (Docker-freundlich)."""
+"""Configuration from environment variables (Docker friendly).
+
+Only the values that must be known before the database exists are read here:
+credentials, paths and secrets. Everything else has a default that the setup
+wizard and the settings page write to the database, so a fresh install needs
+no environment variables at all beyond the volumes.
+"""
 
 import os
 import secrets
@@ -23,20 +29,32 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/config"))
 MOVIES_DIR = Path(os.environ.get("MOVIES_DIR", "/movies"))
 DB_PATH = DATA_DIR / "trailerde.sqlite3"
 
-# Zugang zur Weboberflaeche
+# Web interface credentials. Leaving these unset is the normal case: the setup
+# wizard asks for a user name and password and stores a hash in the database.
 WEB_USERNAME = os.environ.get("WEB_USERNAME", "admin")
 WEB_PASSWORD = os.environ.get("WEB_PASSWORD", "")
 WEB_PASSWORD_HASH = os.environ.get("WEB_PASSWORD_HASH", "")
 AUTH_DISABLED = _bool("AUTH_DISABLED", False)
 
+
+def credentials_from_env():
+    """True when the environment already carries a password.
+
+    In that case the wizard skips its account step and leaves the environment
+    in charge, so a deployment that manages secrets elsewhere keeps working.
+    """
+    return bool(WEB_PASSWORD or WEB_PASSWORD_HASH)
+
+
 SECRET_KEY = os.environ.get("SECRET_KEY", "")
 WEBHOOK_TOKEN = os.environ.get("WEBHOOK_TOKEN", "")
 
-# Hinter einem Reverse Proxy mit TLS: Sitzungscookie nur ueber HTTPS senden.
+# Behind a reverse proxy with TLS: only send the session cookie over HTTPS.
 COOKIE_SECURE = _bool("COOKIE_SECURE", False)
 SESSION_DAYS = _int("SESSION_DAYS", 30)
 
-# Voreinstellungen; in der Oberflaeche aenderbar und dann in der Datenbank
+# Starting values. The wizard and the settings page override each of these and
+# store the result in the database, which then takes precedence.
 DEFAULTS = {
     "tmdb_api_key": os.environ.get("TMDB_API_KEY", ""),
     "languages": os.environ.get("LANGUAGES", "de"),
@@ -54,36 +72,38 @@ DEFAULTS = {
 PORT = _int("PORT", 8081)
 
 
-def _persisted(name, erzeuger):
-    """Einen Zufallswert dauerhaft unter DATA_DIR ablegen und wiederverwenden.
+def _persisted(name, make_value):
+    """Keep a generated secret in DATA_DIR and reuse it on the next start.
 
-    Gibt es die Datei schon, gilt ihr Inhalt. Laesst sich nichts schreiben -
-    /config nur lesbar eingebunden -, kommt ein fluechtiger Wert zurueck; das
-    meldet der Aufrufer.
+    If the file already exists its content wins. When nothing can be written -
+    /config mounted read only - a throwaway value is returned; the caller is
+    told so it can warn.
+
+    Returns (value, persisted).
     """
     path = DATA_DIR / name
     try:
         if path.exists():
-            vorhanden = path.read_text(encoding="utf-8").strip()
-            if vorhanden:
-                return vorhanden, True
-        wert = erzeuger()
+            existing = path.read_text(encoding="utf-8").strip()
+            if existing:
+                return existing, True
+        value = make_value()
         DATA_DIR.mkdir(parents=True, exist_ok=True)
-        path.write_text(wert, encoding="utf-8")
+        path.write_text(value, encoding="utf-8")
         path.chmod(0o600)
-        return wert, True
+        return value, True
     except OSError:
-        return erzeuger(), False
+        return make_value(), False
 
 
 def ensure_webhook_token():
-    """Webhook-Token besorgen: aus der Umgebung, sonst einmalig erzeugen.
+    """Take the webhook token from the environment or generate one once.
 
-    Ohne Token bliebe der Webhook geschlossen - und wer ihn erst selbst erzeugen
-    muss, vergisst es leicht und wundert sich dann ueber einen stummen Webhook.
-    Der erzeugte Wert steht in der Oberflaeche unter Einstellungen -> Webhook.
+    Without a token the webhook stays closed - and a token you have to create
+    yourself is easy to forget, leaving a webhook that silently does nothing.
+    The generated value is shown under Settings -> Webhook.
 
-    Gibt (token, dauerhaft) zurueck.
+    Returns (token, persisted).
     """
     if WEBHOOK_TOKEN:
         return WEBHOOK_TOKEN, True
@@ -91,8 +111,8 @@ def ensure_webhook_token():
 
 
 def ensure_secret_key():
-    """Sitzungsschluessel dauerhaft ablegen, damit Logins Neustarts ueberleben."""
+    """Persist the session key so logins survive a restart."""
     if SECRET_KEY:
         return SECRET_KEY
-    key, _dauerhaft = _persisted("secret_key", lambda: secrets.token_hex(32))
+    key, _persisted_ok = _persisted("secret_key", lambda: secrets.token_hex(32))
     return key

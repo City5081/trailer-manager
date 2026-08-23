@@ -5,8 +5,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-  # Ohne workflow_call darf docker.yml diese Datei nicht per "uses:" aufrufen -
-  # der Build-Workflow laesst sich sonst gar nicht erst laden.
+  # Without workflow_call, docker.yml cannot call this file through "uses:" -
+  # the build workflow would fail to load at all.
   workflow_call:
 
 jobs:

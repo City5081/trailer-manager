@@ -1,157 +1,172 @@
-# Trailer DE
+<p align="center">
+  <img src="app/static/logo.svg" width="72" alt="">
+</p>
 
-Trägt deutsche Trailer von [themoviedb.org](https://www.themoviedb.org) in die
-`.nfo`-Dateien einer Emby-Filmbibliothek ein – per Zeitplan, per Knopfdruck oder
-sofort, wenn Emby bzw. Jellyseerr einen neuen Film meldet.
+<h1 align="center">Trailer DE</h1>
 
-Hintergrund: Emby holt sich seine Trailer selbst von TMDB und landet dabei fast
-immer beim englischen. Steht dagegen ein `<trailer>`-Eintrag in der NFO, nimmt
-Emby diesen.
+<p align="center">
+  Writes German trailers from <a href="https://www.themoviedb.org">themoviedb.org</a>
+  into the <code>.nfo</code> files of an Emby movie library — on a schedule, at the
+  push of a button, or the moment Emby or Jellyseerr reports a new movie.
+</p>
 
-## Funktionen
+---
 
-- **Dauerhafte Datenbank** (SQLite): Ein Automatiklauf fragt nur Filme ab, die
-  neu sind, deren NFO sich geändert hat oder die beim letzten Mal keinen Trailer
-  hatten. Bei 1600 Filmen dauert der zweite Lauf Sekunden statt Stunden.
-- **Zeitplan** in einstellbarem Intervall, dazu ein Lauf beim Start.
-- **Webhook** für Emby, Jellyfin und Jellyseerr: neuer Film → Trailer sofort gesetzt.
-- **Weboberfläche** mit Filmliste, Suche, Filtern, Einzelsuche und manueller
-  Bearbeitung des Links; jeder Trailer lässt sich vorab auf YouTube ansehen.
-- **Anmeldung** mit Benutzername und Passwort, Webhook separat per Token gesichert.
-- **Zweisprachig** Deutsch/Englisch, in der Kopfzeile umschaltbar.
-- **Robuste TMDB-Abfrage**: Der `language`-Filter der Videos-Schnittstelle liefert
-  je nach Sprach-/Regionskombination nichts, obwohl das Video existiert. Deshalb
-  wird bei Bedarf mehrfach abgefragt und anhand des Sprachfelds am Video selbst
-  sortiert. Sobald etwas in der gewünschten Sprache dabei ist, hört die Abfrage auf.
-- **Beide Linkformate**: `plugin://plugin.video.youtube/play/?video_id=…` (das,
-  was Emby schreibt), das ältere Kodi-Format und normale YouTube-URLs.
-- **Sicheres Schreiben**: Die NFO wird erst in eine Nachbardatei geschrieben und
-  dann umbenannt. Bricht der Vorgang ab, bleibt die alte Datei unversehrt.
+Emby fetches trailers from TMDB by itself and almost always ends up with the
+English one. When a `<trailer>` entry is present in the NFO, Emby uses that
+instead. This tool fills in that entry.
 
-## Schnellstart
+Despite the name, the target language is configurable — `de` is only the
+default. Set `en`, `fr`, or `de,en` and it behaves accordingly.
+
+## Features
+
+- **Setup wizard** on first start: account, TMDB API key, language and schedule
+  are asked for in the browser. No environment variables needed.
+- **Persistent database** (SQLite): an automatic run only looks at movies that
+  are new, whose NFO changed, or that came back empty last time. With 1600
+  movies the second run takes seconds instead of hours.
+- **Schedule** at a configurable interval, plus a run at startup.
+- **Webhook** for Emby, Jellyfin and Jellyseerr: new movie → trailer set at once.
+- **Web interface** with a movie list, search, filters, per-movie lookup and
+  manual editing of the link; every trailer can be previewed on YouTube first.
+- **Login** with username and password, webhook secured separately by a token.
+- **Bilingual** German/English, switchable in the header.
+- **Robust TMDB queries**: the `language` filter of the videos endpoint returns
+  nothing for some language and region combinations even though the video
+  exists. So the query is repeated and sorted by the language field on the video
+  itself. As soon as something in the wanted language shows up, it stops.
+- **Both link formats**: `plugin://plugin.video.youtube/play/?video_id=…` (what
+  Emby writes), the older Kodi form, and plain YouTube URLs.
+- **Safe writing**: the NFO is written to a sibling file and then renamed. If
+  the write is cut short, the old file stays intact.
+
+## Quick start
 
 ```bash
-git clone https://github.com/City5081/trailer-de.git
-cd trailer-de
-cp .env.example .env          # ausfüllen: TMDB_API_KEY, WEB_PASSWORD, MOVIES_PATH
-docker compose up -d --build
+mkdir trailer-de && cd trailer-de
+curl -O https://raw.githubusercontent.com/City5081/trailer-de/main/docker-compose.yml
+docker compose up -d
 ```
 
-Danach `http://SERVER:8099` aufrufen und anmelden.
+Then open `http://SERVER:8099` and follow the setup wizard.
 
-Statt selbst zu bauen lässt sich auch das fertige Image verwenden – in der
-`docker-compose.yml` `build: .` auskommentieren und die `image:`-Zeile aktivieren:
+Only two things usually need adjusting in `docker-compose.yml`: the path to your
+movies and, if 8099 is taken, the host port. Everything else has a default.
 
-```
-ghcr.io/city5081/trailer-de:latest
-```
-
-Der Image-Name ist durchgehend klein geschrieben: Docker lässt in Image-Namen
-keine Großbuchstaben zu, auch wenn der GitHub-Benutzername welche hat. Die
-Action schreibt aus demselben Grund nach `city5081`.
-
-`SECRET_KEY` und `WEBHOOK_TOKEN` dürfen leer bleiben – beide werden beim ersten
-Start erzeugt und unter `/config` abgelegt, sodass sie Neustarts überleben.
+The image is `ghcr.io/city5081/trailer-de:latest` — built for `linux/amd64` and
+`linux/arm64`. The name is lowercase throughout because Docker does not allow
+capitals in image names.
 
 ### Unraid
 
-Für den Compose Manager liegt eine eigene Fassung bereit:
-[`docker-compose.unraid.yml`](docker-compose.unraid.yml) – ohne `build:` und ohne
-`env_file:`, denn der Compose Manager legt auf dem Server weder ein
-Quellverzeichnis noch eine `.env` an. Inhalt in *Edit Stack* einfügen, Werte
-eintragen, fertig.
+Use *Docker → Add Container*, or the Compose Manager: paste the contents of
+`docker-compose.yml` into *Edit Stack*. An `.env` file is not required — the
+compose file carries defaults for every variable it uses.
 
-Alternativ über *Docker → Add Container*. Wichtig ist in beiden Fällen:
-
-| Pfad/Variable | Wert |
+| Path / variable | Value |
 |---|---|
-| `/movies` | Freigabe mit den Filmen, **Read/Write** |
-| `/config` | z. B. `/mnt/user/appdata/trailer-de` |
+| `/movies` | share holding the movies, **read/write** |
+| `/config` | e.g. `/mnt/user/appdata/trailer-de` |
 | Port | `8099` → `8081` |
 | `PUID` / `PGID` | `99` / `100` |
 
-Der Container startet als root, stellt den Benutzer `app` auf `PUID`/`PGID` um
-und gibt die Rechte dann ab. Neu geschriebene NFOs gehören damit demselben
-Benutzer wie der Rest der Freigabe.
+The container starts as root, switches the `app` user to `PUID`/`PGID` and then
+drops privileges. NFOs written afterwards belong to the same user as the rest of
+the share.
 
-Wenn die NFOs Emby oder einem anderen Container gehören, hilft
-*Tools → New Permissions*, sonst scheitert das Schreiben mit „Permission denied".
-Was genau klemmt, zeigt in der Detailansicht eines Films der Knopf
-*Schreibrechte prüfen*.
+If the NFOs belong to Emby or another container, *Tools → New Permissions*
+helps; otherwise writing fails with "Permission denied". The *Check write
+access* button on a movie's detail page reports exactly what is wrong.
 
-## Konfiguration
+## Configuration
 
-Alles lässt sich per Umgebungsvariable vorgeben und später in der Oberfläche
-ändern – die Einstellungen aus der Oberfläche haben Vorrang. Vollständige
-Vorlage: [`.env.example`](.env.example).
+Everything is configured in the browser: the wizard on first start, and
+*Settings* afterwards. Environment variables are optional and only useful for
+unattended deployments — they act as the starting value, and the interface takes
+precedence.
 
-| Variable | Bedeutung |
+| Variable | Meaning |
 |---|---|
-| `WEB_USERNAME`, `WEB_PASSWORD` | Zugang zur Oberfläche |
-| `WEB_PASSWORD_HASH` | statt Klartext; erzeugen mit `tools/hash_password.py` |
-| `SECRET_KEY` | Sitzungsschlüssel; leer = wird beim ersten Start erzeugt |
-| `COOKIE_SECURE` | `true` hinter einem Reverse Proxy mit TLS |
-| `SESSION_DAYS` | wie lange eine Anmeldung gilt (Voreinstellung 30) |
-| `TMDB_API_KEY` | **v3-API-Key**, nicht das Read-Access-Token |
-| `LANGUAGES` | `de` = ausschließlich deutsche Trailer, `de,en` mit Rückfall |
-| `LINK_FORMAT` | `emby`, `kodi` oder `url` |
-| `KEEP_FORMAT` | vorhandene Schreibweise beibehalten |
-| `BACKUP` | vor der ersten Änderung eine `.nfo.bak` anlegen |
-| `SCAN_INTERVAL_HOURS` | Intervall, `0` schaltet den Zeitplan ab |
-| `SCAN_ON_START` | Lauf beim Start des Containers |
-| `RECHECK_DAYS` | erfolglose Filme nach so vielen Tagen erneut prüfen |
-| `UI_LANGUAGE` | `de` oder `en` |
-| `WEBHOOK_TOKEN` | Token für die Webhook-Adresse; leer = wird beim ersten Start erzeugt |
-| `AUTH_DISABLED` | `true` nur, wenn eine Gegenstelle die Anmeldung übernimmt |
-| `PUID` / `PGID` | Benutzer- und Gruppenkennung für geschriebene Dateien |
+| `WEB_USERNAME`, `WEB_PASSWORD` | skips the wizard's account step |
+| `WEB_PASSWORD_HASH` | instead of the plain password; see `tools/hash_password.py` |
+| `SECRET_KEY` | session key; empty = generated on first start |
+| `COOKIE_SECURE` | `true` behind a reverse proxy with TLS |
+| `SESSION_DAYS` | how long a login stays valid (default 30) |
+| `TMDB_API_KEY` | **v3 API key**, not the read access token |
+| `LANGUAGES` | `de` = German trailers only, `de,en` falls back to English |
+| `LINK_FORMAT` | `emby`, `kodi` or `url` |
+| `KEEP_FORMAT` | keep the spelling a movie already uses |
+| `BACKUP` | write a `.nfo.bak` before the first change |
+| `SCAN_INTERVAL_HOURS` | interval, `0` disables the schedule |
+| `SCAN_ON_START` | run once when the container starts |
+| `RECHECK_DAYS` | retry movies without a hit after this many days |
+| `UI_LANGUAGE` | `de` or `en` |
+| `WEBHOOK_TOKEN` | empty = generated on first start |
+| `AUTH_DISABLED` | `true` only when an auth proxy handles the login |
+| `PUID` / `PGID` | ownership of files written by the container |
+| `PORT` | port inside the container (default 8081) |
 
-Host-seitig steuern `HOST_PORT`, `MOVIES_PATH` und `CONFIG_PATH` in der `.env`,
-was die `docker-compose.yml` einhängt. Im Container lauscht die Anwendung auf
-`8081`; `PORT` ändert das, falls nötig.
+Host side, `HOST_PORT`, `MOVIES_PATH` and `CONFIG_PATH` control what
+`docker-compose.yml` publishes and mounts.
 
-## Webhook einrichten
+## Webhook
 
-Du musst nichts vorbereiten: Fehlt `WEBHOOK_TOKEN`, erzeugt der erste Start ein
-Token und legt es unter `/config/webhook_token` ab. Die fertige Adresse steht in
-der Oberfläche unter *Einstellungen → Webhook* – von dort kopieren:
+Nothing needs preparing: if `WEBHOOK_TOKEN` is unset, the first start generates
+one and stores it in `/config/webhook_token`. The finished address is shown
+under *Settings → Webhook* — copy it from there:
 
 ```
-http://SERVER:8099/webhook?token=DEIN_TOKEN
+http://SERVER:8099/webhook?token=YOUR_TOKEN
 ```
 
-**Emby:** Einstellungen → Notifications → Webhooks. Ereignis *New Media Added*
-genügt, Format JSON.
+**Emby** — Settings → Notifications → Webhooks → Add:
 
-**Jellyseerr:** Settings → Notifications → Webhook, bei *Media Available*.
+| Field | Value |
+|---|---|
+| URL | the address above |
+| Request content type | `application/json` |
+| Events | *New media added* (under Library) only |
+| Limit library events to | Movies |
 
-Das Tool sucht den Film zuerst über den Dateipfad aus der Meldung, sonst über die
-TMDB-ID; ist er noch unbekannt, wird sein Ordner gezielt nachgelesen.
+`multipart/form-data` is understood as well, but JSON is less ambiguous. Labels
+differ slightly between Emby versions.
 
-## Wie entschieden wird, was geprüft wird
+**Jellyfin** — Dashboard → Plugins → Webhook → Add Generic Destination,
+notification type *Item Added*, item type *Movies*.
 
-Beim Automatiklauf werden angefasst:
+**Jellyseerr** — Settings → Notifications → Webhook, trigger *Media Available*.
 
-- neue Filme und solche, deren NFO sich seit dem letzten Mal geändert hat
-- Filme ohne Trailer-Eintrag
-- Filme, bei denen früher nichts gefunden wurde und deren letzte Prüfung länger
-  als `RECHECK_DAYS` zurückliegt (auf TMDB kommen ja laufend Trailer dazu)
+The movie is matched by the file path from the notification first, then by TMDB
+id; if it is still unknown, its folder is read on the spot.
 
-Fertige Filme bleiben unberührt – außer *„auch fertige Filme erneut prüfen"* ist
-gesetzt oder du drückst *Alle neu prüfen*.
+## What gets checked
 
-## Sicherheit
+An automatic run picks up:
 
-Die Oberfläche gehört nicht ungeschützt ins Internet. Wenn du von außen zugreifen
-willst, dann über einen Reverse Proxy mit TLS (z. B. Nginx Proxy Manager oder
-SWAG), setze `COOKIE_SECURE=true` und ein Passwort per `WEB_PASSWORD_HASH` statt
-im Klartext.
+- new movies, and movies whose NFO changed since last time
+- movies without a trailer entry
+- movies that came back empty, once the last check is older than `RECHECK_DAYS`
+  (TMDB gains trailers all the time)
 
-Eingebaut sind: CSRF-Token für alle Formulare, eine wachsende Wartezeit nach
-wiederholt falschen Anmeldungen, `X-Frame-Options`/`nosniff`, und ein Webhook,
-der nur mit gültigem Token antwortet – das Token wird beim ersten Start selbst
-erzeugt, es gibt also keinen ungeschützten Zwischenzustand.
+Finished movies are left alone — unless *recheck movies that are already done*
+is set, or you press *Recheck all*.
 
-## Entwicklung
+## Security
+
+The interface does not belong on the open internet unprotected. To reach it from
+outside, put a reverse proxy with TLS in front (Nginx Proxy Manager, SWAG, …) and
+set `COOKIE_SECURE=true`.
+
+Built in: CSRF tokens on every form, a growing delay after repeated failed
+logins, `X-Frame-Options`/`nosniff`, and a webhook that only answers with a valid
+token — generated on first start, so there is no unprotected window.
+
+The setup wizard is reachable without a login until an account exists, which is
+the usual first run window. Complete it right after the first start; from then on
+it sits behind the login like everything else.
+
+## Development
 
 ```bash
 python3 -m venv .venv
@@ -160,29 +175,31 @@ python3 -m venv .venv
 .venv/bin/ruff check .
 ```
 
-Lokal ohne Container starten:
+Run locally without a container:
 
 ```bash
-DATA_DIR=./config MOVIES_DIR=/pfad/zu/Filmen WEB_PASSWORD=test .venv/bin/python app/main.py
+DATA_DIR=./config MOVIES_DIR=/path/to/Movies .venv/bin/python app/main.py
 ```
 
-## Aufbau
+The test suite needs no network: TMDB is stubbed out everywhere.
+
+## Layout
 
 ```
 app/
-  main.py      Flask-Anwendung: Anmeldung, Seiten, Webhook
-  scanner.py   Einlesen, Automatiklauf, Zeitplan, Webhook-Verarbeitung
-  db.py        SQLite: Filme, Protokoll, Einstellungen, Durchläufe
-  tmdb.py      TMDB-Client mit robuster Sprachbehandlung
-  nfo.py       NFO lesen und schreiben, Linkformate
-  i18n.py      Übersetzungen DE/EN
+  main.py      Flask application: login, setup wizard, pages, webhook
+  scanner.py   scanning, automatic runs, schedule, webhook handling
+  db.py        SQLite: movies, log, settings, runs
+  tmdb.py      TMDB client with robust language handling
+  nfo.py       reading and writing NFOs, link formats
+  i18n.py      German/English translations
 docker/
-  entrypoint.sh  setzt PUID/PGID und gibt die Rechte ab
-tests/         pytest-Suite (ohne Netzzugriff)
+  entrypoint.sh  applies PUID/PGID and drops privileges
+tests/         pytest suite (no network access)
 tools/
-  hash_password.py  erzeugt WEB_PASSWORD_HASH
+  hash_password.py  creates WEB_PASSWORD_HASH
 ```
 
-## Lizenz
+## License
 
-MIT – siehe [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

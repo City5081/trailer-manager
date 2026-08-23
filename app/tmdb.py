@@ -1,10 +1,9 @@
-"""TMDB-Zugriff.
+"""TMDB access.
 
-Der language-Filter der Videos-Schnittstelle liefert je nach Sprach-/Regions-
-kombination nichts zurueck, obwohl das Video vorhanden ist. Deshalb wird
-mehrfach abgefragt und anhand des Feldes iso_639_1 des Videos selbst einsortiert.
-Fehler werden nie verschluckt - stilles Scheitern saehe sonst aus wie
-"dieser Film hat keinen Trailer".
+The language filter of the videos endpoint returns nothing for some language
+and region combinations even though the video exists. So we query more than
+once and sort by the iso_639_1 field on the video itself. Errors are never
+swallowed - failing quietly would look exactly like "this movie has no trailer".
 """
 
 import json
@@ -23,15 +22,15 @@ class TmdbError(RuntimeError):
 def _explain(error):
     text = str(error)
     if "CERTIFICATE_VERIFY_FAILED" in text or "SSL" in text.upper():
-        return text + "  (Zertifikate im Container pruefen: ca-certificates)"
+        return text + "  (check the certificates in the container: ca-certificates)"
     if "getaddrinfo" in text or "Name or service not known" in text:
-        return text + "  (DNS/Netzwerk: api.themoviedb.org nicht erreichbar)"
+        return text + "  (DNS/network: api.themoviedb.org is unreachable)"
     return text
 
 
 def get(path, api_key, **params):
     if not api_key:
-        raise TmdbError("Kein TMDB API-Key hinterlegt.")
+        raise TmdbError("No TMDB API key configured.")
     params["api_key"] = api_key
     url = "{}{}?{}".format(API, path, urlencode(params))
     req = Request(url, headers={"Accept": "application/json",
@@ -49,24 +48,24 @@ def get(path, api_key, **params):
             if e.code == 404:
                 return None
             if e.code in (401, 403):
-                raise TmdbError("TMDB lehnt den API-Key ab (HTTP {}). Bitte den "
-                                "v3-API-Key pruefen, nicht das Read-Access-Token."
-                                .format(e.code)) from e
-            raise TmdbError("TMDB antwortet mit HTTP {} - {}"
+                raise TmdbError("TMDB rejects the API key (HTTP {}). Please check "
+                                "that this is the v3 API key, not the read access "
+                                "token.".format(e.code)) from e
+            raise TmdbError("TMDB answered with HTTP {} - {}"
                             .format(e.code, e.reason)) from e
         except URLError as e:
             last = e
             time.sleep(1 + attempt)
         except ValueError as e:
-            raise TmdbError("Unlesbare Antwort von TMDB: {}".format(e)) from e
-    raise TmdbError("Keine Verbindung zu api.themoviedb.org. {}".format(
+            raise TmdbError("Unreadable answer from TMDB: {}".format(e)) from e
+    raise TmdbError("Cannot reach api.themoviedb.org. {}".format(
         _explain(getattr(last, "reason", last))))
 
 
 def selftest(api_key):
     data = get("/movie/550/videos", api_key, language="en-US")
     if data is None:
-        raise TmdbError("Unerwartete Antwort von TMDB.")
+        raise TmdbError("Unexpected answer from TMDB.")
     return len(data.get("results") or [])
 
 
@@ -85,14 +84,14 @@ def _rank(v):
 
 
 def _usable(videos):
-    """Nur YouTube-Trailer und -Teaser - alles andere kann Emby nicht abspielen."""
+    """Only YouTube trailers and teasers - Emby cannot play anything else."""
     return [v for v in videos
             if (v.get("site") or "").lower() == "youtube" and v.get("key")
             and (v.get("type") or "").lower() in ("trailer", "teaser")]
 
 
 def fetch_videos(tmdb_id, api_key, langs):
-    """Alle Videos eines Films einsammeln, je Video die tatsaechliche Sprache."""
+    """Collect all videos of a movie, each with its actual language."""
     variants = []
     for lang in langs:
         base = lang.split("-")[0]
@@ -121,9 +120,9 @@ def fetch_videos(tmdb_id, api_key, langs):
                language=variants[0], include_video_language=include)
     absorb((data or {}).get("results"))
     if have_wanted():
-        # Die erste Abfrage liefert meist schon alles. Nur wenn nichts in der
-        # gewuenschten Sprache dabei ist, lohnen die weiteren Varianten - sonst
-        # waeren es bei 1600 Filmen ein paar tausend Abfragen zu viel.
+        # The first request usually returns everything. Only when nothing in the
+        # wanted language shows up are the other variants worth it - otherwise a
+        # library of 1600 movies would mean a few thousand requests too many.
         return list(found.values())
 
     for lang in variants:
@@ -146,7 +145,22 @@ def sort_candidates(videos, langs):
 
 
 def pick_best(videos, langs):
-    """Bester Treffer - ausschliesslich in den gewuenschten Sprachen."""
+    """Best match - strictly within the wanted languages."""
     order = [l.split("-")[0].lower() for l in langs]
     cands = [v for v in sort_candidates(videos, langs) if v.get("lang") in order]
     return cands[0] if cands else None
+
+
+def language_of(videos, video_id):
+    """Language of a specific video id, if TMDB knows it.
+
+    Used for links that were already in the NFO: they came from Emby, so we
+    never picked their language ourselves.
+    """
+    if not video_id:
+        return None
+    for v in videos:
+        if v.get("key") == video_id:
+            lang = v.get("lang") or (v.get("iso_639_1") or "").lower()
+            return lang or None
+    return None

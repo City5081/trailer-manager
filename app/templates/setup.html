@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="post" class="card setup">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <h1>{{ t('setup.title') }}</h1>
+  <p class="hint">{{ t('setup.intro') }}</p>
+
+  {% for e in errors %}<div class="flash error">{{ e }}</div>{% endfor %}
+
+  <h2>{{ t('setup.account') }}</h2>
+  {% if needs_account %}
+    <label>{{ t('login.user') }}
+      <input name="web_username" value="{{ values.web_username }}" autocomplete="username" required>
+    </label>
+    <label>{{ t('login.password') }}
+      <input name="password" type="password" autocomplete="new-password"
+             minlength="{{ min_password }}" required>
+    </label>
+    <label>{{ t('setup.password_repeat') }}
+      <input name="password_repeat" type="password" autocomplete="new-password"
+             minlength="{{ min_password }}" required>
+    </label>
+  {% else %}
+    <p class="hint">{{ t('setup.account_env') }}</p>
+  {% endif %}
+
+  <h2>{{ t('settings.tmdb') }}</h2>
+  <label>{{ t('settings.api_key') }}
+    <input name="tmdb_api_key" value="{{ values.tmdb_api_key }}" autocomplete="off" required>
+  </label>
+  <p class="hint">{{ t('setup.tmdb_hint') }}</p>
+  <label>{{ t('settings.languages') }}
+    <input name="languages" value="{{ values.languages }}">
+  </label>
+  <p class="hint">{{ t('settings.languages_hint') }}</p>
+  <label class="inline">
+    <input type="checkbox" name="skip_check"> {{ t('setup.skip_check') }}
+  </label>
+
+  <h2>{{ t('setup.behaviour') }}</h2>
+  <label>{{ t('settings.link_format') }}
+    <select name="link_format">
+      {% for key, entry in link_formats.items() %}
+        <option value="{{ key }}" {% if values.link_format == key %}selected{% endif %}>{{ entry[0] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="inline"><input type="checkbox" name="keep_format" {% if values.keep_format %}checked{% endif %}> {{ t('settings.keep_format') }}</label>
+  <label class="inline"><input type="checkbox" name="backup" {% if values.backup %}checked{% endif %}> {{ t('settings.backup') }}</label>
+  <label>{{ t('settings.interval') }}
+    <input name="scan_interval_hours" value="{{ values.scan_interval_hours }}" size="6">
+  </label>
+  <label>{{ t('settings.recheck') }}
+    <input name="recheck_days" value="{{ values.recheck_days }}" size="6">
+  </label>
+  <label class="inline"><input type="checkbox" name="scan_on_start" {% if values.scan_on_start %}checked{% endif %}> {{ t('settings.scan_on_start') }}</label>
+
+  <h2>{{ t('settings.ui') }}</h2>
+  <label>{{ t('settings.ui_language') }}
+    <select name="ui_language">
+      {% for code, label in languages.items() %}
+        <option value="{{ code }}" {% if values.ui_language == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <div class="toolbar">
+    <button class="primary" type="submit">{{ t('setup.finish') }}</button>
+  </div>
+</form>
+{% endblock %}

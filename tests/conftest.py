@@ -1,7 +1,7 @@
-"""Testaufbau: app/ importierbar machen und auf Wegwerf-Ordner umlenken.
+"""Test setup: make app/ importable and point it at throwaway folders.
 
-config.py liest die Umgebung beim Import, deshalb muessen die Variablen stehen,
-bevor irgendein Modul der Anwendung geladen wird.
+config.py reads the environment at import time, so the variables have to be in
+place before any application module is loaded.
 """
 
 import os
@@ -17,8 +17,11 @@ os.environ.setdefault("DATA_DIR", str(_TMP / "config"))
 os.environ.setdefault("MOVIES_DIR", str(_TMP / "movies"))
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("WEB_USERNAME", "tester")
-os.environ.setdefault("WEB_PASSWORD", "geheim-mit-umlaut-ä")
+os.environ.setdefault("WEB_PASSWORD", "secret-with-umlaut-ä")
 os.environ.setdefault("WEBHOOK_TOKEN", "test-token")
+# Password and API key present: create_app treats the instance as configured and
+# does not send every request to the setup wizard.
+os.environ.setdefault("TMDB_API_KEY", "test-key")
 os.environ.setdefault("SCAN_ON_START", "false")
 os.environ.setdefault("SCAN_INTERVAL_HOURS", "0")
 
@@ -26,7 +29,7 @@ import pytest                                        # noqa: E402
 
 NFO_SAMPLE = """<?xml version="1.0" encoding="utf-8"?>
 <movie>
-  <title>Testfilm</title>
+  <title>Test Movie</title>
   <year>2021</year>
   <uniqueid type="tmdb">550</uniqueid>
   <uniqueid type="imdb">tt0137523</uniqueid>
@@ -36,33 +39,33 @@ NFO_SAMPLE = """<?xml version="1.0" encoding="utf-8"?>
 
 @pytest.fixture
 def movie_nfo(tmp_path):
-    """Eine NFO-Datei im typischen Emby-Layout: ein Ordner je Film."""
-    folder = tmp_path / "Testfilm (2021)"
+    """An NFO in the usual Emby layout: one folder per movie."""
+    folder = tmp_path / "Test Movie (2021)"
     folder.mkdir()
-    path = folder / "Testfilm (2021).nfo"
+    path = folder / "Test Movie (2021).nfo"
     path.write_text(NFO_SAMPLE, encoding="utf-8")
     return path
 
 
-@pytest.fixture
-def client():
-    """Flask-Testclient mit frisch angelegter Datenbank."""
-    import config
-    import main
-
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    main.create_app()
-    main.app.config["TESTING"] = True
-    with main.app.test_client() as c:
-        yield c
-
-
 @pytest.fixture(scope="session", autouse=True)
-def datenbank():
-    """Einmal pro Testlauf eine frische SQLite-Datei anlegen."""
+def database():
+    """One fresh SQLite file per test run."""
     import config
     import db
 
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     db.init(config.DB_PATH)
     return db
+
+
+@pytest.fixture
+def client():
+    """Flask test client on a configured instance."""
+    import db
+    import main
+
+    main.create_app()
+    db.set_setting("setup_done", "1")
+    main.app.config["TESTING"] = True
+    with main.app.test_client() as c:
+        yield c

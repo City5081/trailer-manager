@@ -25,6 +25,8 @@ header {
   background: var(--panel); border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 5;
 }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand .logo { display: block; border-radius: 7px; }
 .brand strong { font-size: 17px; }
 .brand .sub { color: var(--muted); margin-left: 10px; font-size: 13px; }
 nav { display: flex; align-items: center; gap: 16px; }
@@ -41,6 +43,7 @@ main { padding: 20px 22px 60px; max-width: 1280px; margin: 0 auto; }
   padding: 18px 20px; margin-bottom: 18px;
 }
 .card.narrow { max-width: 420px; margin: 60px auto; }
+.card.setup { max-width: 620px; margin: 30px auto; }
 h1 { font-size: 20px; margin: 0 0 12px; }
 h2 { font-size: 15px; margin: 20px 0 8px; color: var(--muted);
      text-transform: uppercase; letter-spacing: .06em; }
@@ -122,3 +125,9 @@ footer {
   header { flex-direction: column; align-items: flex-start; }
   .stats div { flex: 1 1 40%; }
 }
+
+.muted { color: var(--muted); }
+.url { background: #12161d; border: 1px solid var(--line); border-radius: 7px;
+       padding: 10px 12px; }
+.steps { margin: 6px 0 4px; padding-left: 20px; color: var(--text); font-size: 13px; }
+.steps li { margin: 4px 0; }

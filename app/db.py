@@ -1,8 +1,8 @@
-"""SQLite-Ablage: Filme, Protokoll, Einstellungen.
+"""SQLite storage: movies, log, settings, runs.
 
-Der Filmbestand wird dauerhaft gespeichert. Ein Automatiklauf fasst deshalb nur
-noch Filme an, die neu sind, deren NFO sich geaendert hat oder die beim letzten
-Mal keinen Trailer bekommen haben.
+The movie inventory is kept between runs. An automatic run therefore only
+touches movies that are new, whose NFO changed, or that came back empty last
+time.
 """
 
 import sqlite3
@@ -28,9 +28,9 @@ CREATE TABLE IF NOT EXISTS movies (
     mtime          REAL,
     size           INTEGER,
     first_seen     REAL,
-    last_scanned   REAL,            -- NFO zuletzt eingelesen
-    last_checked   REAL,            -- TMDB zuletzt gefragt
-    last_changed   REAL             -- NFO zuletzt von uns geschrieben
+    last_scanned   REAL,            -- NFO last read
+    last_checked   REAL,            -- TMDB last asked
+    last_changed   REAL             -- NFO last written by us
 );
 CREATE INDEX IF NOT EXISTS idx_movies_state  ON movies(state);
 CREATE INDEX IF NOT EXISTS idx_movies_tmdb   ON movies(tmdb_id);
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS runs (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     started   REAL,
     finished  REAL,
-    trigger   TEXT,          -- manual | schedule | webhook
+    trigger   TEXT,          -- manual | schedule | webhook | start
     scanned   INTEGER DEFAULT 0,
     checked   INTEGER DEFAULT 0,
     updated   INTEGER DEFAULT 0,
@@ -93,7 +93,7 @@ def connect():
         raise
 
 
-# --------------------------------------------------------------- Einstellungen
+# ------------------------------------------------------------------- settings
 def get_setting(key, default=None):
     with connect() as con:
         row = con.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
@@ -112,7 +112,7 @@ def all_settings():
         return {r["key"]: r["value"] for r in con.execute("SELECT key,value FROM settings")}
 
 
-# ---------------------------------------------------------------------- Filme
+# --------------------------------------------------------------------- movies
 def upsert_movie(path, folder, data, mtime, size):
     now = time.time()
     with connect() as con:
@@ -142,6 +142,17 @@ def mark_result(path, state, message=None, trailer=None, trailer_lang=None, writ
                         (state, message, now, path))
 
 
+def note_trailer_lang(path, lang):
+    """Record the language of a trailer that was already in the NFO.
+
+    Those links come from Emby, not from us, so nothing is written to disk -
+    but knowing the language is what makes the language column and the
+    "of which German" figure meaningful.
+    """
+    with connect() as con:
+        con.execute("UPDATE movies SET trailer_lang=? WHERE path=?", (lang, path))
+
+
 def get_movie(path):
     with connect() as con:
         return con.execute("SELECT * FROM movies WHERE path=?", (path,)).fetchone()
@@ -158,14 +169,14 @@ def find_by_folder(folder):
 
 
 def known_files():
-    """{pfad: (mtime, size)} - fuer den Abgleich beim Einlesen."""
+    """{path: (mtime, size)} - used to skip unchanged files while scanning."""
     with connect() as con:
         return {r["path"]: (r["mtime"], r["size"])
                 for r in con.execute("SELECT path, mtime, size FROM movies")}
 
 
 def delete_missing(paths_present):
-    """Filme entfernen, deren NFO es nicht mehr gibt."""
+    """Drop movies whose NFO is gone."""
     with connect() as con:
         rows = con.execute("SELECT path FROM movies").fetchall()
         gone = [r["path"] for r in rows if r["path"] not in paths_present]
@@ -175,11 +186,11 @@ def delete_missing(paths_present):
 
 
 def pending_movies(recheck_seconds, overwrite_existing=False, limit=None):
-    """Was beim Automatiklauf angefasst wird.
+    """What an automatic run picks up.
 
-    - immer: neue Filme und solche ohne Trailer
-    - erneut: Filme ohne Treffer, wenn der letzte Versuch lange her ist
-    - nie: fertige Filme, ausser 'overwrite_existing' ist gesetzt
+    - always: new movies and movies without a trailer
+    - again: movies that came back empty, once the last attempt is old enough
+    - never: finished movies, unless 'overwrite_existing' is set
     """
     cutoff = time.time() - recheck_seconds
     sql = """
@@ -220,30 +231,37 @@ def list_movies(search=None, state=None, only_missing=False, limit=500, offset=0
     return rows, total
 
 
-def stats():
+def stats(primary_lang="de"):
+    """Counts for the dashboard.
+
+    The "of which <language>" figure follows the first configured language, so
+    it stays meaningful for an English or French library too.
+    """
     with connect() as con:
         row = con.execute("""
             SELECT COUNT(*) total,
                    SUM(CASE WHEN trailer IS NOT NULL AND trailer <> ''
                             THEN 1 ELSE 0 END) with_trailer,
-                   SUM(CASE WHEN trailer_lang = 'de' THEN 1 ELSE 0 END) german,
+                   SUM(CASE WHEN trailer_lang = :lang THEN 1 ELSE 0 END) primary_lang,
                    SUM(CASE WHEN state = 'no_trailer' THEN 1 ELSE 0 END) no_trailer,
                    SUM(CASE WHEN state = 'no_id' THEN 1 ELSE 0 END) no_id,
                    SUM(CASE WHEN state = 'error' THEN 1 ELSE 0 END) errors
-            FROM movies""").fetchone()
-    return {k: (row[k] or 0) for k in row.keys()}
+            FROM movies""", {"lang": (primary_lang or "de").lower()}).fetchone()
+    out = {k: (row[k] or 0) for k in row.keys()}
+    out["primary_lang_code"] = (primary_lang or "de").lower()
+    return out
 
 
-# ------------------------------------------------------------------ Protokoll
+# ------------------------------------------------------------------------ log
 LOG_KEEP = 2000
 _log_writes = 0
 
 
 def log(level, message, source="app"):
-    """Protokollzeile schreiben; alte Zeilen nur gelegentlich wegraeumen.
+    """Write a log line; clean out old ones only now and then.
 
-    Das Aufraeumen bei jedem Eintrag kostet waehrend eines Laufs mit tausenden
-    Meldungen spuerbar Zeit, deshalb nur jedes hundertste Mal.
+    Pruning on every insert costs real time during a run with thousands of
+    messages, so it happens every hundredth write instead.
     """
     global _log_writes
     with connect() as con:
@@ -267,7 +285,7 @@ def recent_log(limit=200, level=None):
         return con.execute(sql, params).fetchall()
 
 
-# ----------------------------------------------------------------- Durchlaeufe
+# ----------------------------------------------------------------------- runs
 def start_run(trigger):
     with connect() as con:
         cur = con.execute("INSERT INTO runs(started, trigger) VALUES(?,?)",

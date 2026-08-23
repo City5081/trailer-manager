@@ -1,4 +1,4 @@
-"""Einlesen der Bibliothek, Automatiklauf, Zeitplan und Webhook-Verarbeitung."""
+"""Reading the library, automatic runs, schedule and webhook handling."""
 
 import threading
 import time
@@ -21,7 +21,7 @@ class Scanner:
         self._stop = threading.Event()
         self._scheduler = None
 
-    # ------------------------------------------------------------- Hilfsmittel
+    # ------------------------------------------------------------------ helpers
     def _langs(self):
         raw = self.get("languages", "de")
         return [l.strip() for l in raw.split(",") if l.strip()] or ["de"]
@@ -36,10 +36,10 @@ class Scanner:
         self._stop.set()
 
     def _claim(self):
-        """Belegt-Kennzeichen setzen. False, wenn schon etwas laeuft.
+        """Take the busy flag. False when something is already running.
 
-        Pruefen und Setzen muessen unter demselben Schloss passieren, sonst
-        starten zwei gleichzeitige Klicks zwei Durchgaenge.
+        Checking and setting have to happen under the same lock, otherwise two
+        quick clicks start two runs.
         """
         with self.lock:
             if self.busy:
@@ -51,9 +51,9 @@ class Scanner:
         with self.lock:
             self.busy = False
 
-    # ---------------------------------------------------------------- Einlesen
+    # ------------------------------------------------------------------ reading
     def scan_async(self):
-        """Einlesen im Hintergrund anstossen. False, wenn schon etwas laeuft."""
+        """Start reading the library in the background. False when busy."""
         if not self._claim():
             return False
         self._stop.clear()
@@ -62,7 +62,7 @@ class Scanner:
             try:
                 self.scan_library()
             except Exception as e:                         # noqa: BLE001
-                db.log("error", "Einlesen fehlgeschlagen: {}".format(e), "scan")
+                db.log("error", "Reading the library failed: {}".format(e), "scan")
             finally:
                 self.state.update(phase="idle", current="")
                 self._release()
@@ -71,8 +71,8 @@ class Scanner:
         return True
 
     def scan_library(self, workers=12):
-        """NFOs einlesen und in der Datenbank abgleichen. Nur geaenderte Dateien
-        werden neu geparst - Mtime und Groesse stehen ja schon in der DB."""
+        """Read NFOs and reconcile them with the database. Only changed files are
+        parsed again - mtime and size are already in the database."""
         started = time.time()
         self.state.update(phase="scan", done=0, total=0, current="")
         files = nfo.walk_nfo_files(self.movies_dir, self._stop)
@@ -98,7 +98,7 @@ class Scanner:
                     path, mtime, size = futures[fut]
                     try:
                         data = fut.result()
-                    except Exception:                          # noqa: BLE001
+                    except Exception:                      # noqa: BLE001
                         data = None
                     if data:
                         db.upsert_movie(path, str(Path(path).parent), data, mtime, size)
@@ -107,14 +107,14 @@ class Scanner:
                     self.state["current"] = Path(path).parent.name
 
         gone = db.delete_missing(present)
-        db.log("info", "Bibliothek eingelesen: {} NFOs, {} neu/geaendert, {} entfernt, {:.1f}s"
+        db.log("info", "Library read: {} NFOs, {} new or changed, {} removed, {:.1f}s"
                .format(len(files), added, len(gone), time.time() - started), "scan")
         return {"files": len(files), "changed": added, "removed": len(gone)}
 
-    # ----------------------------------------------------------- Einzelner Film
+    # ------------------------------------------------------------- single movie
     def process_movie(self, row, force=False):
-        """Einen Film bei TMDB nachschlagen und die NFO schreiben.
-        Gibt (status, meldung) zurueck."""
+        """Look a movie up on TMDB and write the NFO.
+        Returns (status, message)."""
         api_key = self._api_key()
         langs = self._langs()
         path = row["path"]
@@ -124,8 +124,8 @@ class Scanner:
             if not tmdb_id and row["imdb_id"]:
                 tmdb_id = tmdb.lookup_by_imdb(row["imdb_id"], api_key)
             if not tmdb_id:
-                db.mark_result(path, "no_id", "Keine TMDB-/IMDb-ID in der NFO")
-                return "no_id", "Keine TMDB-/IMDb-ID in der NFO"
+                db.mark_result(path, "no_id", "No TMDB or IMDb id in the NFO")
+                return "no_id", "No TMDB or IMDb id in the NFO"
 
             videos = tmdb.fetch_videos(tmdb_id, api_key, langs)
             best = tmdb.pick_best(videos, langs)
@@ -134,10 +134,19 @@ class Scanner:
             db.log("error", "{}: {}".format(row["title"], e), "tmdb")
             return "error", str(e)
 
+        # A link that was already in the NFO came from Emby, so its language is
+        # unknown to us. Ask TMDB about it while we have the video list anyway -
+        # that is what fills the language column for an existing library.
+        existing_id = nfo.video_id_from(row["trailer"])
+        if existing_id and not row["trailer_lang"]:
+            existing_lang = tmdb.language_of(videos, existing_id)
+            if existing_lang:
+                db.note_trailer_lang(path, existing_lang)
+
         if not best:
             db.mark_result(path, "no_trailer",
-                           "Kein Trailer in {}".format(", ".join(langs)))
-            return "no_trailer", "Kein Trailer in {}".format(", ".join(langs))
+                           "No trailer in {}".format(", ".join(langs)))
+            return "no_trailer", "No trailer in {}".format(", ".join(langs))
 
         fmt = self.get("link_format", "emby")
         if self._flag("keep_format", "1") and row["trailer"]:
@@ -145,9 +154,9 @@ class Scanner:
         value = nfo.format_link(best["key"], fmt)
 
         if value == (row["trailer"] or "") and not force:
-            db.mark_result(path, "ok", "Bereits aktuell", trailer=value,
+            db.mark_result(path, "ok", "Already up to date", trailer=value,
                            trailer_lang=best.get("lang"), written=True)
-            return "ok", "Bereits aktuell"
+            return "ok", "Already up to date"
 
         try:
             nfo.write_trailer(Path(path), value,
@@ -161,12 +170,12 @@ class Scanner:
 
         db.mark_result(path, "ok", "Trailer [{}] {}".format(best.get("lang"), best["key"]),
                        trailer=value, trailer_lang=best.get("lang"), written=True)
-        db.log("ok", "{}: Trailer [{}] {} eingetragen".format(
+        db.log("ok", "{}: trailer [{}] {} written".format(
             row["title"], best.get("lang"), best["key"]), "auto")
         return "ok", best["key"]
 
     def candidates_for(self, row):
-        """Alle Trailer eines Films - fuer die manuelle Auswahl in der Oberflaeche."""
+        """Every trailer of a movie - for picking one by hand in the interface."""
         api_key = self._api_key()
         tmdb_id = row["tmdb_id"]
         if not tmdb_id and row["imdb_id"]:
@@ -176,11 +185,11 @@ class Scanner:
         return tmdb.sort_candidates(tmdb.fetch_videos(tmdb_id, api_key, self._langs()),
                                     self._langs())
 
-    # --------------------------------------------------------- Automatiklauf
+    # ----------------------------------------------------------- automatic run
     def run(self, trigger="manual", only_paths=None, force=False):
-        """Vollstaendiger Lauf: einlesen, dann offene Filme abarbeiten."""
+        """Full run: read the library, then work through the open movies."""
         if not self._claim():
-            return {"skipped": True, "reason": "Es laeuft bereits ein Durchgang"}
+            return {"skipped": True, "reason": "A run is already in progress"}
         self._stop.clear()
         run_id = db.start_run(trigger)
         self.state.update(started=time.time(), trigger=trigger)
@@ -196,12 +205,12 @@ class Scanner:
                 rows = [r for r in rows if r]
 
             self.state.update(phase="check", done=0, total=len(rows), current="")
-            db.log("info", "Automatiklauf ({}): {} Filme zu pruefen".format(trigger, len(rows)),
+            db.log("info", "Automatic run ({}): {} movies to check".format(trigger, len(rows)),
                    "auto")
 
             for row in rows:
                 if self._stop.is_set():
-                    db.log("warn", "Automatiklauf abgebrochen", "auto")
+                    db.log("warn", "Automatic run cancelled", "auto")
                     break
                 self.state["current"] = row["title"] or row["folder"]
                 status, _msg = self.process_movie(row, force=force)
@@ -211,29 +220,29 @@ class Scanner:
                 elif status == "error":
                     failed += 1
                 self.state["done"] = checked
-                time.sleep(0.05)                # TMDB schonen
+                time.sleep(0.05)                # go easy on TMDB
         finally:
             db.finish_run(run_id, scanned, checked, updated, failed)
             self.state.update(phase="idle", current="")
             self._release()
         result = {"scanned": scanned, "checked": checked, "updated": updated, "failed": failed}
-        db.log("info", "Automatiklauf beendet: {}".format(result), "auto")
+        db.log("info", "Automatic run finished: {}".format(result), "auto")
         return result
 
     def run_async(self, **kwargs):
-        """Lauf im Hintergrund starten. Der Belegt-Schutz sitzt in run() selbst,
-        deshalb ist der Blick auf busy hier nur eine schnelle Vorpruefung."""
+        """Start a run in the background. The busy guard lives in run() itself,
+        so the look at busy here is only a quick pre-check."""
         if self.busy:
             return False
         threading.Thread(target=self.run, kwargs=kwargs, daemon=True).start()
         return True
 
-    # ------------------------------------------------------------- Webhook
+    # ---------------------------------------------------------------- webhook
     def handle_event(self, payload):
-        """Meldung von Emby/Jellyfin/Jellyseerr verarbeiten.
+        """Handle a notification from Emby, Jellyfin or Jellyseerr.
 
-        Gesucht wird zuerst der Dateipfad, sonst die TMDB-ID. Ist der Film noch
-        nicht in der Datenbank, wird sein Ordner gezielt nachgelesen.
+        We look for the file path first, then the TMDB id. If the movie is not
+        in the database yet, its folder is read on the spot.
         """
         path = _dig(payload, ["Item", "Path"]) or _dig(payload, ["Path"]) \
             or _dig(payload, ["media", "path"])
@@ -250,7 +259,7 @@ class Scanner:
             folder = str(Path(path).parent)
             rows = db.find_by_folder(folder)
             if not rows:
-                # Ordner gezielt einlesen (Film ist ganz neu)
+                # Read just this folder (the movie is brand new)
                 for nfo_path, mtime, size in nfo.walk_nfo_files(folder):
                     data = nfo.parse_nfo(nfo_path)
                     if data:
@@ -259,13 +268,13 @@ class Scanner:
         if not rows and tmdb_id:
             rows = db.find_by_tmdb(tmdb_id)
         if not rows and tmdb_id:
-            # Film liegt noch nicht in der DB: kurzer Gesamtscan
-            db.log("info", "Webhook: {} unbekannt, lese Bibliothek nach".format(title), "webhook")
+            # Still nothing in the database: read the whole library once
+            db.log("info", "Webhook: {} unknown, reading the library".format(title), "webhook")
             self.scan_library()
             rows = db.find_by_tmdb(tmdb_id)
 
         if not rows:
-            db.log("warn", "Webhook: kein passender Film gefunden ({})".format(title), "webhook")
+            db.log("warn", "Webhook: no matching movie found ({})".format(title), "webhook")
             return {"matched": 0, "title": title}
 
         results = []
@@ -275,7 +284,7 @@ class Scanner:
         db.log("info", "Webhook: {} -> {}".format(title, results[0]["status"]), "webhook")
         return {"matched": len(rows), "title": title, "results": results}
 
-    # ------------------------------------------------------------- Zeitplan
+    # --------------------------------------------------------------- schedule
     def start_scheduler(self):
         if self._scheduler and self._scheduler.is_alive():
             return
@@ -285,28 +294,28 @@ class Scanner:
                 time.sleep(5)
                 try:
                     self.run(trigger="start")
-                except Exception as e:                         # noqa: BLE001
-                    db.log("error", "Startlauf fehlgeschlagen: {}".format(e), "schedule")
+                except Exception as e:                     # noqa: BLE001
+                    db.log("error", "Run at startup failed: {}".format(e), "schedule")
             while True:
                 try:
                     hours = float(self.get("scan_interval_hours", "12") or 12)
                 except (TypeError, ValueError):
                     hours = 12
                 if hours <= 0:
-                    time.sleep(300)             # Zeitplan aus
+                    time.sleep(300)             # schedule switched off
                     continue
                 time.sleep(hours * 3600)
                 try:
                     self.run(trigger="schedule")
-                except Exception as e:                         # noqa: BLE001
-                    db.log("error", "Geplanter Lauf fehlgeschlagen: {}".format(e), "schedule")
+                except Exception as e:                     # noqa: BLE001
+                    db.log("error", "Scheduled run failed: {}".format(e), "schedule")
 
         self._scheduler = threading.Thread(target=loop, daemon=True)
         self._scheduler.start()
 
 
 def _dig(data, keys):
-    """Verschachtelten Wert holen, ohne bei fehlenden Schluesseln zu stolpern."""
+    """Fetch a nested value without tripping over missing keys."""
     cur = data
     for key in keys:
         if not isinstance(cur, dict):

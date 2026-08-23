@@ -1,4 +1,4 @@
-"""Die Uebersetzungstabellen muessen deckungsgleich sein."""
+"""The translation tables have to match."""
 
 import re
 from pathlib import Path
@@ -8,27 +8,27 @@ import i18n
 TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "templates"
 
 
-def test_beide_sprachen_kennen_dieselben_schluessel():
+def test_both_languages_know_the_same_keys():
     de = set(i18n.STRINGS["de"])
     en = set(i18n.STRINGS["en"])
-    assert de - en == set(), "fehlt auf Englisch: {}".format(sorted(de - en))
-    assert en - de == set(), "fehlt auf Deutsch: {}".format(sorted(en - de))
+    assert de - en == set(), "missing in English: {}".format(sorted(de - en))
+    assert en - de == set(), "missing in German: {}".format(sorted(en - de))
 
 
-def test_keine_leeren_uebersetzungen():
-    for lang, tabelle in i18n.STRINGS.items():
-        leer = [k for k, v in tabelle.items() if not str(v).strip()]
-        assert leer == [], "{}: leer -> {}".format(lang, leer)
+def test_no_empty_translations():
+    for lang, table in i18n.STRINGS.items():
+        empty = [k for k, v in table.items() if not str(v).strip()]
+        assert empty == [], "{}: empty -> {}".format(lang, empty)
 
 
-def test_templates_verwenden_nur_bekannte_schluessel():
-    bekannt = set(i18n.STRINGS["de"])
-    muster = re.compile(r"t\(\s*'([a-z_]+\.[a-z_]+)'\s*\)")
-    for datei in TEMPLATES.glob("*.html"):
-        for key in muster.findall(datei.read_text(encoding="utf-8")):
-            assert key in bekannt, "{}: unbekannter Schluessel {}".format(datei.name, key)
+def test_templates_only_use_known_keys():
+    known = set(i18n.STRINGS["de"])
+    pattern = re.compile(r"t\(\s*'([a-z_]+\.[a-z_]+)'\s*\)")
+    for path in TEMPLATES.glob("*.html"):
+        for key in pattern.findall(path.read_text(encoding="utf-8")):
+            assert key in known, "{}: unknown key {}".format(path.name, key)
 
 
-def test_rueckfall_auf_deutsch_und_auf_den_schluessel():
+def test_fallback_to_german_and_then_to_the_key():
     assert i18n.translate("xx", "app.title") == i18n.STRINGS["de"]["app.title"]
-    assert i18n.translate("de", "gibt.es.nicht") == "gibt.es.nicht"
+    assert i18n.translate("de", "does.not.exist") == "does.not.exist"

@@ -8,7 +8,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "C4"]
-# E741: in Sprachlisten heisst die Laufvariable nun einmal l.
-# UP steht bewusst nicht in der Liste: die Anwendung schreibt durchgehend
-# .format(), das soll nicht halb auf f-Strings umgestellt werden.
+# E741: in language lists the loop variable really is called l.
+# UP is deliberately absent: the application uses .format() throughout and
+# should not end up half converted to f-strings.
 ignore = ["E741"]

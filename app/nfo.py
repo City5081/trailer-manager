@@ -1,4 +1,4 @@
-"""NFO-Dateien lesen und schreiben (Emby-/Kodi-Format)."""
+"""Reading and writing NFO files (Emby/Kodi format)."""
 
 import os
 import re
@@ -6,13 +6,13 @@ import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-# Emby/Kodi kennen zwei plugin://-Schreibweisen; Emby selbst schreibt die erste.
+# Emby and Kodi understand two plugin:// spellings; Emby itself writes the first.
 LINK_FORMATS = {
-    "emby": ("Emby-Format  plugin://.../play/?video_id=",
+    "emby": ("Emby style  plugin://.../play/?video_id=",
              "plugin://plugin.video.youtube/play/?video_id={}"),
-    "kodi": ("Kodi-Altformat  plugin://...?action=play_video&videoid=",
+    "kodi": ("Kodi legacy  plugin://...?action=play_video&videoid=",
              "plugin://plugin.video.youtube/?action=play_video&videoid={}"),
-    "url": ("YouTube-URL  https://www.youtube.com/watch?v=",
+    "url": ("YouTube URL  https://www.youtube.com/watch?v=",
             "https://www.youtube.com/watch?v={}"),
 }
 FORMAT_LABELS = {label: keyname for keyname, (label, _fmt) in LINK_FORMATS.items()}
@@ -74,7 +74,7 @@ def set_trailer(root, value):
         children = list(root)
         pos = children.index(node)
         root.remove(node)
-        if pos > 0:                       # Einrueckung des Vorgaengers uebernehmen
+        if pos > 0:                       # keep the previous element's indentation
             children[pos - 1].tail = node.tail
         changed = True
     return changed
@@ -88,52 +88,52 @@ def ensure_lockdata(root):
 
 
 class WriteError(RuntimeError):
-    """Schreibfehler mit Klartext-Ursache."""
+    """Write failure with a plain language cause."""
 
 
 def check_write_access(nfo_path):
-    """Prueft Schreibrechte auf NFO und Ordner. Gibt Liste von Klartextzeilen."""
+    """Check write access to the NFO and its folder. Returns plain text lines."""
     lines = []
     nfo = Path(nfo_path)
     folder = nfo.parent
-    lines.append("Datei:  {}".format(nfo))
-    lines.append("Ordner: {}".format(folder))
+    lines.append("File:   {}".format(nfo))
+    lines.append("Folder: {}".format(folder))
 
     try:
         st = nfo.stat()
-        lines.append("Rechte der NFO: {:o}, Besitzer-UID {}, Gruppen-GID {}".format(
+        lines.append("NFO permissions: {:o}, owner UID {}, group GID {}".format(
             st.st_mode & 0o777, st.st_uid, st.st_gid))
     except OSError as e:
-        lines.append("NFO nicht lesbar: {}".format(e))
+        lines.append("NFO not readable: {}".format(e))
         return lines
 
-    lines.append("NFO beschreibbar:   {}".format("ja" if os.access(nfo, os.W_OK) else "NEIN"))
-    lines.append("Ordner beschreibbar: {}".format("ja" if os.access(folder, os.W_OK) else "NEIN"))
+    lines.append("NFO writable:    {}".format("yes" if os.access(nfo, os.W_OK) else "NO"))
+    lines.append("Folder writable: {}".format("yes" if os.access(folder, os.W_OK) else "NO"))
 
-    probe = folder / ".tmdb-trailer-schreibtest"
+    probe = folder / ".trailer-de-write-test"
     try:
         probe.write_text("test", encoding="utf-8")
         probe.unlink()
-        lines.append("Praktischer Schreibtest im Ordner: erfolgreich")
+        lines.append("Actual write test in the folder: succeeded")
     except OSError as e:
-        lines.append("Praktischer Schreibtest im Ordner: FEHLGESCHLAGEN ({})".format(e))
+        lines.append("Actual write test in the folder: FAILED ({})".format(e))
 
     return lines
 
 
 def _perm_hint(path):
-    return ("Moegliche Ursachen:\n"
-            "  - Die SMB-Freigabe ist nur lesend eingebunden (als Gast verbunden oder in\n"
-            "    Unraid unter Shares -> SMB Security auf 'Read-only').\n"
-            "  - Die Datei gehoert einem anderen Benutzer (z.B. von Emby oder einem\n"
-            "    Docker-Container geschrieben). In Unraid hilft Tools -> New Permissions.\n"
-            "  - Der Ordner selbst ist nicht beschreibbar - dann scheitert schon die\n"
-            "    Sicherungskopie. Zum Test die Option 'Sicherung (.bak)' abschalten.\n\n"
-            "Betroffen: {}".format(path))
+    return ("Possible causes:\n"
+            "  - The SMB share is mounted read only (connected as guest, or set to\n"
+            "    'Read-only' under Shares -> SMB Security on Unraid).\n"
+            "  - The file belongs to a different user (written by Emby or another\n"
+            "    container). On Unraid, Tools -> New Permissions helps.\n"
+            "  - The folder itself is not writable - then even the backup copy\n"
+            "    fails. Turn off the 'backup (.bak)' option to test.\n\n"
+            "Affected: {}".format(path))
 
 
 def write_trailer(nfo_path, value, lockdata=False, backup=True):
-    """Trailer-Link in eine NFO schreiben. Gibt True zurueck, wenn geaendert."""
+    """Write a trailer link into an NFO. Returns True when something changed."""
     nfo_path = Path(nfo_path)
     tree = ET.parse(nfo_path)
     root = tree.getroot()
@@ -150,22 +150,21 @@ def write_trailer(nfo_path, value, lockdata=False, backup=True):
                 bak.write_bytes(nfo_path.read_bytes())
             except PermissionError as e:
                 raise WriteError(
-                    "Die Sicherungskopie laesst sich nicht anlegen - der ORDNER ist "
-                    "nicht beschreibbar.\n\n" + _perm_hint(bak)) from e
+                    "The backup copy cannot be created - the FOLDER is not "
+                    "writable.\n\n" + _perm_hint(bak)) from e
             except OSError as e:
-                raise WriteError("Sicherungskopie fehlgeschlagen: {}".format(e)) from e
+                raise WriteError("Backup copy failed: {}".format(e)) from e
 
     _write_atomic(tree, nfo_path)
     return True
 
 
 def _write_atomic(tree, nfo_path):
-    """Erst in eine Nachbardatei schreiben, dann umbenennen.
+    """Write to a sibling file first, then rename.
 
-    Bricht das Schreiben ab - volle Platte, gekappte SMB-Verbindung -, bleibt so
-    die alte NFO unversehrt, statt halb geschrieben zurueckzubleiben. Klappt das
-    Anlegen der Zwischendatei nicht (Ordner nur lesbar, Datei aber beschreibbar),
-    wird direkt geschrieben.
+    If writing is cut short - disk full, SMB connection dropped - the old NFO
+    stays intact instead of being left half written. When the temporary file
+    cannot be created (folder read only but file writable) we write directly.
     """
     folder = nfo_path.parent
     try:
@@ -187,10 +186,10 @@ def _write_atomic(tree, nfo_path):
             tree.write(nfo_path, encoding="utf-8", xml_declaration=True)
             return
         except PermissionError as e:
-            raise WriteError("Die NFO-Datei ist schreibgeschuetzt.\n\n"
+            raise WriteError("The NFO file is write protected.\n\n"
                              + _perm_hint(nfo_path)) from e
         except OSError as e:
-            raise WriteError("Schreiben fehlgeschlagen: {}".format(e)) from e
+            raise WriteError("Writing failed: {}".format(e)) from e
 
     try:
         tree.write(tmp_path, encoding="utf-8", xml_declaration=True)
@@ -199,17 +198,17 @@ def _write_atomic(tree, nfo_path):
         os.replace(tmp_path, nfo_path)
     except PermissionError as e:
         _unlink_quiet(tmp_path)
-        raise WriteError("Die NFO-Datei ist schreibgeschuetzt.\n\n"
+        raise WriteError("The NFO file is write protected.\n\n"
                          + _perm_hint(nfo_path)) from e
     except OSError as e:
         _unlink_quiet(tmp_path)
-        raise WriteError("Schreiben fehlgeschlagen: {}".format(e)) from e
+        raise WriteError("Writing failed: {}".format(e)) from e
 
 
 def _copy_owner(src, dst):
-    """Besitzer uebernehmen, damit Emby die NFO weiter anfassen kann.
+    """Carry the owner over so Emby can still touch the NFO.
 
-    Nur moeglich, wenn der Prozess die Rechte dazu hat - sonst still uebergehen.
+    Only possible when the process has the rights for it - otherwise ignore.
     """
     try:
         st = os.stat(src)
@@ -226,12 +225,12 @@ def _unlink_quiet(path):
 
 
 def video_id_from(text):
-    """YouTube-ID aus plugin://-String, URL oder blanker ID herausloesen."""
+    """Pull the YouTube id out of a plugin:// string, a URL or a bare id."""
     text = (text or "").strip()
     if not text:
         return None
-    for pattern in (r"video_id=([A-Za-z0-9_-]{11})",      # Emby / neues YouTube-Addon
-                    r"videoid=([A-Za-z0-9_-]{11})",       # Kodi-Altformat
+    for pattern in (r"video_id=([A-Za-z0-9_-]{11})",      # Emby / current YouTube add-on
+                    r"videoid=([A-Za-z0-9_-]{11})",       # Kodi legacy
                     r"[?&]v=([A-Za-z0-9_-]{11})",
                     r"youtu\.be/([A-Za-z0-9_-]{11})",
                     r"/embed/([A-Za-z0-9_-]{11})"):
@@ -244,8 +243,8 @@ def video_id_from(text):
 
 
 def format_link(video_id, fmt=DEFAULT_FORMAT):
-    """Video-ID in die gewuenschte Schreibweise bringen."""
-    if fmt is True:                       # Altaufruf (Schalter 'youtube_url')
+    """Render a video id in the requested spelling."""
+    if fmt is True:                       # legacy call (the old 'youtube_url' flag)
         fmt = "url"
     elif fmt is False:
         fmt = "kodi"
@@ -254,7 +253,7 @@ def format_link(video_id, fmt=DEFAULT_FORMAT):
 
 
 def detect_format(link):
-    """Erkennt, in welcher Schreibweise ein vorhandener Link vorliegt."""
+    """Recognise which spelling an existing link uses."""
     text = (link or "").strip().lower()
     if "video_id=" in text:
         return "emby"
@@ -266,7 +265,7 @@ def detect_format(link):
 
 
 def parse_nfo(path):
-    """NFO einlesen -> dict oder None."""
+    """Read an NFO -> dict or None."""
     try:
         root = ET.parse(path).getroot()
     except (ET.ParseError, OSError):
@@ -284,8 +283,8 @@ def parse_nfo(path):
 
 
 def walk_nfo_files(root_path, stop=None):
-    """NFO-Dateien einsammeln. os.scandir ist ueber SMB deutlich schneller als
-    Path.rglob, weil Typ und Groesse schon in der Verzeichnisliste stecken."""
+    """Collect NFO files. os.scandir is much faster than Path.rglob over SMB,
+    because type and size already come with the directory listing."""
     found = []
     stack = [str(root_path)]
     while stack:

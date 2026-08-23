@@ -3,7 +3,7 @@
 <div class="stats">
   <div><b>{{ stats.total }}</b><span>{{ t('stats.total') }}</span></div>
   <div><b>{{ stats.with_trailer }}</b><span>{{ t('stats.with_trailer') }}</span></div>
-  <div><b>{{ stats.german }}</b><span>{{ t('stats.german') }}</span></div>
+  <div><b>{{ stats.primary_lang }}</b><span>{{ t('stats.primary_lang') }} ({{ stats.primary_lang_code|upper }})</span></div>
   <div><b>{{ stats.no_trailer }}</b><span>{{ t('stats.no_trailer') }}</span></div>
   <div><b>{{ stats.no_id }}</b><span>{{ t('stats.no_id') }}</span></div>
   <div class="{% if stats.errors %}bad{% endif %}"><b>{{ stats.errors }}</b><span>{{ t('stats.errors') }}</span></div>
@@ -43,7 +43,7 @@
       <td>{{ m['year'] or '' }}</td>
       <td>{{ m['tmdb_id'] or '-' }}</td>
       <td class="mono">{{ vid or (m['trailer'] and '?' or '-') }}</td>
-      <td>{{ (m['trailer_lang'] or '')|upper }}</td>
+      <td>{% if m['trailer_lang'] %}{{ m['trailer_lang']|upper }}{% else %}<span class="muted" title="{{ t('table.lang_unknown') }}">&ndash;</span>{% endif %}</td>
       <td><span class="state {{ m['state'] }}">{{ t('state.' + (m['state'] or 'pending')) }}</span></td>
       <td class="actions">
         {% if vid %}<a class="btn small" target="_blank" rel="noopener"

@@ -1,8 +1,8 @@
-"""Trailer DE - Weboberflaeche.
+"""Trailer DE - web interface.
 
-Traegt deutsche TMDB-Trailer in die NFO-Dateien einer Emby-Filmbibliothek ein:
-per Zeitplan, per Knopfdruck oder sofort, wenn Emby/Jellyseerr einen neuen Film
-melden.
+Writes German TMDB trailers into the NFO files of an Emby movie library: on a
+schedule, at the push of a button, or right away when Emby or Jellyseerr
+reports a new movie.
 """
 
 import functools
@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 from flask import (Flask, abort, flash, jsonify, redirect, render_template,
                    request, session, url_for)
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 import config
 import db
@@ -31,14 +31,15 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = config.COOKIE_SECURE
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=config.SESSION_DAYS)
-app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024      # Webhook-Nutzlasten sind klein
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024      # webhook payloads are small
 
 SCANNER = None
+MIN_PASSWORD_LENGTH = 8
 
 
 @app.template_filter("ts")
 def format_ts(value):
-    """Zeitstempel lesbar machen - in der Schreibweise der gewaehlten Sprache."""
+    """Make a timestamp readable, in the notation of the chosen language."""
     if not value:
         return ""
     try:
@@ -49,7 +50,7 @@ def format_ts(value):
     return time.strftime(pattern, stamp)
 
 
-# --------------------------------------------------------------- Einstellungen
+# --------------------------------------------------------------------- settings
 def setting(key, default=None):
     value = db.get_setting(key)
     if value is None or value == "":
@@ -61,15 +62,29 @@ def flag(key, default="0"):
     return str(setting(key, default)) in ("1", "true", "True", "on", "yes")
 
 
-# ------------------------------------------------------------------ Anmeldung
-def _equal(left, right):
-    """Zeitkonstanter Vergleich, der auch Umlaute im Passwort vertraegt.
+def primary_language():
+    """First configured language - the one the dashboard counts."""
+    raw = setting("languages", "de") or "de"
+    first = raw.split(",")[0].strip().split("-")[0]
+    return (first or "de").lower()
 
-    hmac.compare_digest wirft bei Zeichenketten ausserhalb von ASCII einen
-    TypeError - deshalb erst nach UTF-8 wandeln.
+
+# ------------------------------------------------------------------------ auth
+def _equal(left, right):
+    """Constant time comparison that also copes with non-ASCII passwords.
+
+    hmac.compare_digest raises a TypeError on strings outside ASCII, so encode
+    to UTF-8 first.
     """
     return hmac.compare_digest((left or "").encode("utf-8"),
                                (right or "").encode("utf-8"))
+
+
+def current_username():
+    """The environment wins when it carries credentials, otherwise the wizard."""
+    if config.credentials_from_env():
+        return config.WEB_USERNAME
+    return db.get_setting("web_username") or config.WEB_USERNAME
 
 
 def password_ok(password):
@@ -77,17 +92,20 @@ def password_ok(password):
         return check_password_hash(config.WEB_PASSWORD_HASH, password)
     if config.WEB_PASSWORD:
         return _equal(config.WEB_PASSWORD, password)
+    stored = db.get_setting("web_password_hash")
+    if stored:
+        return check_password_hash(stored, password)
     return False
 
 
-_ATTEMPTS = {}                          # {ip: [Anzahl, Zeitpunkt des letzten Versuchs]}
+_ATTEMPTS = {}                          # {ip: (count, time of the last attempt)}
 _ATTEMPTS_LOCK = threading.Lock()
-LOCKOUT_AFTER = 5                       # ab so vielen Fehlversuchen wird gewartet
-LOCKOUT_SECONDS = 300                   # danach zaehlt der Zaehler wieder von vorn
+LOCKOUT_AFTER = 5                       # failed attempts before we start waiting
+LOCKOUT_SECONDS = 300                   # after this the counter starts over
 
 
 def _login_delay(ip):
-    """Wartezeit nach wiederholten Fehlversuchen, gedeckelt auf 30 Sekunden."""
+    """Delay after repeated failures, capped at 30 seconds."""
     with _ATTEMPTS_LOCK:
         count, last = _ATTEMPTS.get(ip, (0, 0.0))
         if time.time() - last > LOCKOUT_SECONDS:
@@ -104,7 +122,7 @@ def _note_attempt(ip, success):
         if time.time() - last > LOCKOUT_SECONDS:
             count = 0
         _ATTEMPTS[ip] = (count + 1, time.time())
-        if len(_ATTEMPTS) > 1000:       # keine unbegrenzte Liste im Speicher
+        if len(_ATTEMPTS) > 1000:       # do not keep an unbounded list in memory
             cutoff = time.time() - LOCKOUT_SECONDS
             for key in [k for k, v in _ATTEMPTS.items() if v[1] < cutoff]:
                 _ATTEMPTS.pop(key, None)
@@ -124,31 +142,31 @@ def login():
     error = None
     if request.method == "POST":
         ip = request.remote_addr or "?"
-        time.sleep(1 + _login_delay(ip))    # bremst Rateversuche aus
+        time.sleep(1 + _login_delay(ip))    # slows brute force down
         user = request.form.get("username", "")
         pwd = request.form.get("password", "")
-        if _equal(user, config.WEB_USERNAME) and password_ok(pwd):
+        if _equal(user, current_username()) and password_ok(pwd):
             _note_attempt(ip, True)
-            session.clear()                 # neue Sitzungskennung nach dem Login
+            session.clear()                 # fresh session id after a login
             session["user"] = user
             session.permanent = True
-            db.log("info", "Anmeldung: {}".format(user), "auth")
+            db.log("info", "Login: {}".format(user), "auth")
             return redirect(_safe_next(request.args.get("next")))
         _note_attempt(ip, False)
         error = t("login.failed")
-        db.log("warn", "Fehlgeschlagene Anmeldung von {}".format(ip), "auth")
+        db.log("warn", "Failed login from {}".format(ip), "auth")
     return render_template("login.html", error=error)
 
 
 def _safe_next(target):
-    """Nur Weiterleitungen innerhalb der eigenen Oberflaeche zulassen."""
+    """Only allow redirects that stay inside this interface."""
     if target and target.startswith("/") and not target.startswith("//"):
         return target
     return url_for("index")
 
 
 def _back():
-    """Zurueck zur vorigen Seite - aber nur, wenn sie zu uns gehoert."""
+    """Back to the previous page - but only if it is ours."""
     referrer = request.referrer or ""
     if referrer.startswith(request.host_url):
         return referrer
@@ -161,7 +179,7 @@ def logout():
     return redirect(url_for("login"))
 
 
-# ------------------------------------------------------------------- Sprache
+# -------------------------------------------------------------------- language
 def current_lang():
     return session.get("lang") or setting("ui_language", "de")
 
@@ -177,12 +195,12 @@ def switch_language(code):
     return redirect(_back())
 
 
-# ----------------------------------------------------------------------- CSRF
+# ------------------------------------------------------------------------ CSRF
 CSRF_EXEMPT = {"webhook", "health", "static"}
 
 
 def csrf_token():
-    """Ein Token je Sitzung; liegt in jedem Formular und wird beim POST geprueft."""
+    """One token per session; it sits in every form and is checked on POST."""
     token = session.get("csrf")
     if not token:
         token = secrets.token_urlsafe(32)
@@ -198,10 +216,10 @@ def check_csrf():
         return None
     expected = session.get("csrf", "")
     supplied = request.form.get("csrf") or request.headers.get("X-CSRF-Token", "")
-    # Ohne Token in der Sitzung darf nichts durchgehen - sonst wuerde ein leeres
-    # Feld gegen einen leeren Erwartungswert stimmen.
+    # Nothing may pass without a token in the session - otherwise an empty field
+    # would match an empty expectation.
     if not expected or not _equal(supplied, expected):
-        db.log("warn", "Anfrage ohne gueltiges CSRF-Token ({})".format(request.path), "auth")
+        db.log("warn", "Request without a valid CSRF token ({})".format(request.path), "auth")
         abort(400)
     return None
 
@@ -228,14 +246,114 @@ def inject_globals():
     }
 
 
+# ----------------------------------------------------------------- setup wizard
+SETUP_EXEMPT = {"setup", "static", "health", "webhook", "login", "switch_language"}
+
+
+def setup_done():
+    return db.get_setting("setup_done") == "1"
+
+
+@app.before_request
+def require_setup():
+    """Send everything to the wizard until the basics are configured."""
+    if setup_done() or request.endpoint in SETUP_EXEMPT or request.endpoint is None:
+        return None
+    return redirect(url_for("setup"))
+
+
+def setup_is_protected():
+    """Does the wizard itself need a login?
+
+    On a fresh install there is no password yet, so the wizard has to be open -
+    the same first run window every self hosted application has. As soon as
+    credentials exist anywhere, it is behind the login.
+    """
+    return bool(config.credentials_from_env() or db.get_setting("web_password_hash"))
+
+
+@app.route("/setup", methods=["GET", "POST"])
+def setup():
+    if setup_is_protected() and not (config.AUTH_DISABLED or session.get("user")):
+        return redirect(url_for("login", next=request.path))
+
+    needs_account = not config.credentials_from_env()
+    values = {
+        "web_username": current_username(),
+        "tmdb_api_key": setting("tmdb_api_key", ""),
+        "languages": setting("languages", "de"),
+        "link_format": setting("link_format", "emby"),
+        "keep_format": flag("keep_format", "1"),
+        "backup": flag("backup", "1"),
+        "scan_interval_hours": setting("scan_interval_hours", "12"),
+        "scan_on_start": flag("scan_on_start", "1"),
+        "recheck_days": setting("recheck_days", "30"),
+        "ui_language": current_lang(),
+    }
+    errors = []
+
+    if request.method == "POST":
+        for key in ("web_username", "tmdb_api_key", "languages", "link_format",
+                    "scan_interval_hours", "recheck_days", "ui_language"):
+            values[key] = request.form.get(key, "").strip()
+        for key in ("keep_format", "backup", "scan_on_start"):
+            values[key] = bool(request.form.get(key))
+
+        password = request.form.get("password", "")
+        repeat = request.form.get("password_repeat", "")
+        skip_check = bool(request.form.get("skip_check"))
+
+        if needs_account:
+            if not values["web_username"]:
+                errors.append(t("setup.err_user"))
+            if len(password) < MIN_PASSWORD_LENGTH:
+                errors.append(t("setup.err_short"))
+            elif password != repeat:
+                errors.append(t("setup.err_repeat"))
+
+        if not values["tmdb_api_key"]:
+            errors.append(t("setup.err_key"))
+        elif not skip_check:
+            # Check the key right away - a wrong key is the one mistake that
+            # makes the whole application look broken later on.
+            try:
+                tmdb.selftest(values["tmdb_api_key"])
+            except tmdb.TmdbError as e:
+                errors.append(str(e))
+
+        if not errors:
+            if needs_account:
+                db.set_setting("web_username", values["web_username"])
+                db.set_setting("web_password_hash", generate_password_hash(password))
+            for key in ("tmdb_api_key", "languages", "link_format",
+                        "scan_interval_hours", "recheck_days", "ui_language"):
+                db.set_setting(key, values[key])
+            for key in ("keep_format", "backup", "scan_on_start"):
+                db.set_setting(key, "1" if values[key] else "0")
+            db.set_setting("setup_done", "1")
+            session["lang"] = values["ui_language"]
+            db.log("info", "Setup completed", "setup")
+
+            if needs_account:
+                session["user"] = values["web_username"]
+                session.permanent = True
+            flash(t("setup.finished"), "ok")
+            return redirect(url_for("settings_page"))
+
+    return render_template("setup.html", values=values, errors=errors,
+                           needs_account=needs_account,
+                           min_password=MIN_PASSWORD_LENGTH)
+
+
+# ----------------------------------------------------------------------- pages
 MAX_PAGE = 1_000_000
 
 
 def _positive_int(value, default):
-    """Zahlen aus der Adresszeile duerfen nicht in einem Serverfehler enden.
+    """Numbers from the address bar must not end in a server error.
 
-    Auch die Obergrenze ist noetig: SQLite nimmt keine beliebig grossen Zahlen
-    als OFFSET und wirft sonst einen OverflowError.
+    The upper bound matters too: SQLite refuses arbitrarily large OFFSET values
+    and raises an OverflowError.
     """
     try:
         return min(MAX_PAGE, max(1, int(value)))
@@ -243,7 +361,6 @@ def _positive_int(value, default):
         return default
 
 
-# --------------------------------------------------------------------- Seiten
 @app.route("/")
 @login_required
 def index():
@@ -256,7 +373,7 @@ def index():
                                  limit=per_page, offset=(page - 1) * per_page)
     return render_template("index.html", movies=rows, total=total, page=page,
                            pages=max(1, (total + per_page - 1) // per_page),
-                           stats=db.stats(), search=search, state=state,
+                           stats=db.stats(primary_language()), search=search, state=state,
                            only_missing=only_missing, video_id=nfo.video_id_from)
 
 
@@ -305,10 +422,10 @@ def movie_save():
         return redirect(url_for("movie_detail", path=path))
 
     db.mark_result(path, "ok" if value else "pending",
-                   "Manuell gesetzt" if value else "Manuell entfernt",
+                   "Set by hand" if value else "Removed by hand",
                    trailer=value, trailer_lang=request.form.get("lang") or None,
                    written=True)
-    db.log("ok", "{}: manuell {}".format(row["title"], value or "entfernt"), "manual")
+    db.log("ok", "{}: manually {}".format(row["title"], value or "removed"), "manual")
     flash(t("msg.saved") if value else t("msg.removed"), "ok")
     return redirect(url_for("movie_detail", path=path))
 
@@ -328,7 +445,7 @@ def movie_check():
 @app.route("/movie/diag")
 @login_required
 def movie_diag():
-    """Klartext-Auskunft zu Rechten - die haeufigste Ursache fuer Schreibfehler."""
+    """Plain text report on permissions - the usual cause of write failures."""
     path = request.args.get("path", "")
     row = db.get_movie(path)
     if not row:
@@ -366,7 +483,8 @@ def stop_run():
 @app.route("/status")
 @login_required
 def status():
-    return jsonify({"busy": SCANNER.busy, "state": SCANNER.state, "stats": db.stats()})
+    return jsonify({"busy": SCANNER.busy, "state": SCANNER.state,
+                    "stats": db.stats(primary_language())})
 
 
 @app.route("/settings", methods=["GET", "POST"])
@@ -381,7 +499,7 @@ def settings_page():
         for key in keys_flag:
             db.set_setting(key, "1" if request.form.get(key) else "0")
         session["lang"] = request.form.get("ui_language", "de")
-        db.log("info", "Einstellungen geaendert", "settings")
+        db.log("info", "Settings changed", "settings")
         flash(t("settings.saved"), "ok")
         return redirect(url_for("settings_page"))
 
@@ -394,12 +512,35 @@ def settings_page():
                            runs=db.last_runs(5))
 
 
+@app.route("/settings/password", methods=["POST"])
+@login_required
+def settings_password():
+    """Change the password - only meaningful when the wizard set it."""
+    if config.credentials_from_env():
+        flash(t("settings.pw_from_env"), "error")
+        return redirect(url_for("settings_page"))
+    current = request.form.get("current", "")
+    new = request.form.get("password", "")
+    repeat = request.form.get("password_repeat", "")
+    if not password_ok(current):
+        flash(t("settings.pw_wrong"), "error")
+    elif len(new) < MIN_PASSWORD_LENGTH:
+        flash(t("setup.err_short"), "error")
+    elif new != repeat:
+        flash(t("setup.err_repeat"), "error")
+    else:
+        db.set_setting("web_password_hash", generate_password_hash(new))
+        db.log("info", "Password changed", "auth")
+        flash(t("settings.pw_saved"), "ok")
+    return redirect(url_for("settings_page"))
+
+
 @app.route("/settings/test", methods=["POST"])
 @login_required
 def settings_test():
     try:
         count = tmdb.selftest(setting("tmdb_api_key", ""))
-        flash("{} ({} Videos)".format(t("msg.test_ok"), count), "ok")
+        flash("{} ({} videos)".format(t("msg.test_ok"), count), "ok")
     except tmdb.TmdbError as e:
         flash(str(e), "error")
     return redirect(url_for("settings_page"))
@@ -411,22 +552,22 @@ def log_page():
     return render_template("log.html", entries=db.recent_log(300), runs=db.last_runs(10))
 
 
-# ------------------------------------------------------------------- Webhook
+# --------------------------------------------------------------------- webhook
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    """Emby, Jellyfin und Jellyseerr melden hier neue Filme.
+    """Emby, Jellyfin and Jellyseerr report new movies here.
 
-    Absicherung ueber ein Token (Query-Parameter oder Header), weil Webhooks
-    ohne Sitzung auskommen muessen.
+    Guarded by a token (query parameter or header), because webhooks have to
+    work without a session.
     """
     if not config.WEBHOOK_TOKEN:
-        # Ohne Token waere der Endpunkt fuer jeden offen, der den Port erreicht.
-        db.log("warn", "Webhook abgewiesen: WEBHOOK_TOKEN ist nicht gesetzt", "webhook")
+        # Without a token the endpoint would be open to anyone who reaches the port.
+        db.log("warn", "Webhook refused: WEBHOOK_TOKEN is not set", "webhook")
         abort(403)
     supplied = (request.args.get("token")
                 or request.headers.get("X-Webhook-Token", ""))
     if not _equal(supplied, config.WEBHOOK_TOKEN):
-        db.log("warn", "Webhook mit falschem Token von {}".format(request.remote_addr),
+        db.log("warn", "Webhook with a wrong token from {}".format(request.remote_addr),
                "webhook")
         abort(403)
 
@@ -448,9 +589,9 @@ def health():
     return jsonify({"ok": True, "busy": SCANNER.busy if SCANNER else False})
 
 
-# ---------------------------------------------------------------------- Start
+# ----------------------------------------------------------------------- start
 def create_app():
-    """Anwendung aufbauen. Mehrfachaufrufe (Gunicorn-Reload) sind harmlos."""
+    """Build the application. Calling this twice (Gunicorn reload) is harmless."""
     global SCANNER
     if SCANNER is not None:
         return app
@@ -459,16 +600,21 @@ def create_app():
     for key, value in config.DEFAULTS.items():
         if db.get_setting(key) is None:
             db.set_setting(key, value)
-    config.WEBHOOK_TOKEN, dauerhaft = config.ensure_webhook_token()
-    if not dauerhaft:
-        db.log("warn", "Webhook-Token liess sich nicht unter /config ablegen - es "
-                       "gilt nur bis zum Neustart. Schreibrechte pruefen.", "app")
+
+    # An installation that already ran before the wizard existed, or one fully
+    # configured through the environment, should not be sent to the wizard.
+    if db.get_setting("setup_done") is None:
+        configured = bool(config.DEFAULTS["tmdb_api_key"] and config.credentials_from_env())
+        db.set_setting("setup_done", "1" if configured else "0")
+
+    config.WEBHOOK_TOKEN, persisted = config.ensure_webhook_token()
+    if not persisted:
+        db.log("warn", "The webhook token could not be stored under /config - it only "
+                       "lasts until the next restart. Check the permissions.", "app")
 
     SCANNER = scanner_mod.Scanner(config.MOVIES_DIR, setting)
     SCANNER.start_scheduler()
-    db.log("info", "Trailer DE gestartet (Bibliothek: {})".format(config.MOVIES_DIR), "app")
-    if not config.WEB_PASSWORD and not config.WEB_PASSWORD_HASH and not config.AUTH_DISABLED:
-        db.log("warn", "Kein WEB_PASSWORD gesetzt - Anmeldung nicht moeglich!", "app")
+    db.log("info", "Trailer DE started (library: {})".format(config.MOVIES_DIR), "app")
     return app
 
 

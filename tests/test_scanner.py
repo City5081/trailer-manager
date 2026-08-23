@@ -1,4 +1,4 @@
-"""Einlesen, Auswahl der zu pruefenden Filme, Ablauf eines Durchgangs."""
+"""Reading the library, picking what to check, and a full run."""
 
 import threading
 import time
@@ -9,24 +9,29 @@ import scanner as scanner_mod
 import tmdb
 
 
-def einstellungen(**abweichend):
-    werte = {"languages": "de", "link_format": "emby", "keep_format": "1",
-             "backup": "0", "lockdata": "0", "tmdb_api_key": "testkey",
-             "recheck_days": "30", "overwrite_existing": "0",
-             "scan_on_start": "0", "scan_interval_hours": "0"}
-    werte.update(abweichend)
-    return lambda key, default=None: werte.get(key, default)
+def settings(**overrides):
+    values = {"languages": "de", "link_format": "emby", "keep_format": "1",
+              "backup": "0", "lockdata": "0", "tmdb_api_key": "testkey",
+              "recheck_days": "30", "overwrite_existing": "0",
+              "scan_on_start": "0", "scan_interval_hours": "0"}
+    values.update(overrides)
+    return lambda key, default=None: values.get(key, default)
 
 
-def test_einlesen_erkennt_neue_und_geloeschte_filme(tmp_path, movie_nfo):
-    bib = movie_nfo.parent.parent
-    s = scanner_mod.Scanner(bib, einstellungen())
+def german_trailer(*_a, **_k):
+    return [{"key": "dQw4w9WgXcQ", "lang": "de", "type": "Trailer",
+             "official": True, "site": "YouTube", "size": 1080}]
 
-    ergebnis = s.scan_library(workers=2)
-    assert ergebnis["files"] == 1 and ergebnis["changed"] == 1
-    assert db.get_movie(str(movie_nfo))["title"] == "Testfilm"
 
-    # Unveraenderte Dateien werden beim zweiten Lauf nicht neu geparst.
+def test_scan_detects_new_and_removed_movies(movie_nfo):
+    library = movie_nfo.parent.parent
+    s = scanner_mod.Scanner(library, settings())
+
+    result = s.scan_library(workers=2)
+    assert result["files"] == 1 and result["changed"] == 1
+    assert db.get_movie(str(movie_nfo))["title"] == "Test Movie"
+
+    # Unchanged files are not parsed again on the second pass.
     assert s.scan_library(workers=2)["changed"] == 0
 
     movie_nfo.unlink()
@@ -34,25 +39,22 @@ def test_einlesen_erkennt_neue_und_geloeschte_filme(tmp_path, movie_nfo):
     assert db.get_movie(str(movie_nfo)) is None
 
 
-def test_traegt_deutschen_trailer_ein(movie_nfo, monkeypatch):
-    s = scanner_mod.Scanner(movie_nfo.parent.parent, einstellungen())
+def test_writes_the_german_trailer(movie_nfo, monkeypatch):
+    s = scanner_mod.Scanner(movie_nfo.parent.parent, settings())
     s.scan_library(workers=2)
 
-    monkeypatch.setattr(tmdb, "fetch_videos",
-                        lambda *a, **k: [{"key": "dQw4w9WgXcQ", "lang": "de",
-                                          "type": "Trailer", "official": True,
-                                          "site": "YouTube", "size": 1080}])
+    monkeypatch.setattr(tmdb, "fetch_videos", german_trailer)
     status, _ = s.process_movie(db.get_movie(str(movie_nfo)))
     assert status == "ok"
 
-    erwartet = nfo.format_link("dQw4w9WgXcQ", "emby")
-    assert nfo.parse_nfo(movie_nfo)["trailer"] == erwartet
-    zeile = db.get_movie(str(movie_nfo))
-    assert zeile["state"] == "ok" and zeile["trailer_lang"] == "de"
+    expected = nfo.format_link("dQw4w9WgXcQ", "emby")
+    assert nfo.parse_nfo(movie_nfo)["trailer"] == expected
+    row = db.get_movie(str(movie_nfo))
+    assert row["state"] == "ok" and row["trailer_lang"] == "de"
 
 
-def test_ohne_treffer_wird_nichts_geschrieben(movie_nfo, monkeypatch):
-    s = scanner_mod.Scanner(movie_nfo.parent.parent, einstellungen())
+def test_nothing_is_written_without_a_hit(movie_nfo, monkeypatch):
+    s = scanner_mod.Scanner(movie_nfo.parent.parent, settings())
     s.scan_library(workers=2)
     monkeypatch.setattr(tmdb, "fetch_videos", lambda *a, **k: [])
     status, _ = s.process_movie(db.get_movie(str(movie_nfo)))
@@ -60,68 +62,97 @@ def test_ohne_treffer_wird_nichts_geschrieben(movie_nfo, monkeypatch):
     assert nfo.parse_nfo(movie_nfo)["trailer"] == ""
 
 
-def test_film_ohne_ids_wird_gemeldet(tmp_path):
-    ordner = tmp_path / "Ohne IDs (2020)"
-    ordner.mkdir()
-    pfad = ordner / "film.nfo"
-    pfad.write_text("<movie><title>Ohne IDs</title></movie>", encoding="utf-8")
+def test_language_of_an_existing_trailer_is_recorded(movie_nfo, monkeypatch):
+    """Links that Emby wrote have no language attached. Without this the whole
+    language column stays empty for an existing library."""
+    english = nfo.format_link("bbbbbbbbbbb", "emby")
+    nfo.write_trailer(movie_nfo, english, backup=False)
 
-    s = scanner_mod.Scanner(tmp_path, einstellungen())
+    s = scanner_mod.Scanner(movie_nfo.parent.parent, settings())
     s.scan_library(workers=2)
-    status, _ = s.process_movie(db.get_movie(str(pfad)))
+    assert db.get_movie(str(movie_nfo))["trailer_lang"] is None
+
+    monkeypatch.setattr(tmdb, "fetch_videos", lambda *a, **k: [
+        {"key": "bbbbbbbbbbb", "lang": "en", "type": "Trailer",
+         "official": True, "site": "YouTube", "size": 1080}])
+    status, _ = s.process_movie(db.get_movie(str(movie_nfo)))
+
+    # No German trailer exists, so nothing is written - but we now know the
+    # existing link is English.
+    assert status == "no_trailer"
+    assert db.get_movie(str(movie_nfo))["trailer_lang"] == "en"
+    assert nfo.parse_nfo(movie_nfo)["trailer"] == english
+
+
+def test_movie_without_ids_is_reported(tmp_path):
+    folder = tmp_path / "No IDs (2020)"
+    folder.mkdir()
+    path = folder / "movie.nfo"
+    path.write_text("<movie><title>No IDs</title></movie>", encoding="utf-8")
+
+    s = scanner_mod.Scanner(tmp_path, settings())
+    s.scan_library(workers=2)
+    status, _ = s.process_movie(db.get_movie(str(path)))
     assert status == "no_id"
 
 
-def test_vorhandenes_linkformat_wird_beibehalten(movie_nfo, monkeypatch):
-    """Steht in der NFO schon eine YouTube-URL, soll sie nicht auf plugin://
-    umgestellt werden - sonst aendert sich bei jedem Lauf jede Datei."""
+def test_existing_link_format_is_kept(movie_nfo, monkeypatch):
+    """If the NFO already holds a plain YouTube URL, it must not be switched to
+    plugin:// - otherwise every run rewrites every file."""
     nfo.write_trailer(movie_nfo, nfo.format_link("aaaaaaaaaaa", "url"), backup=False)
-    s = scanner_mod.Scanner(movie_nfo.parent.parent, einstellungen())
+    s = scanner_mod.Scanner(movie_nfo.parent.parent, settings())
     s.scan_library(workers=2)
-    monkeypatch.setattr(tmdb, "fetch_videos",
-                        lambda *a, **k: [{"key": "dQw4w9WgXcQ", "lang": "de",
-                                          "type": "Trailer", "official": True,
-                                          "site": "YouTube", "size": 1080}])
+    monkeypatch.setattr(tmdb, "fetch_videos", german_trailer)
     s.process_movie(db.get_movie(str(movie_nfo)))
     assert nfo.parse_nfo(movie_nfo)["trailer"].startswith("https://www.youtube.com/")
 
 
-def test_nur_ein_durchgang_gleichzeitig(tmp_path):
-    """Zwei Klicks kurz hintereinander duerfen keine zwei Laeufe starten."""
-    s = scanner_mod.Scanner(tmp_path, einstellungen())
+def test_only_one_run_at_a_time(tmp_path):
+    """Two quick clicks must not start two runs."""
+    s = scanner_mod.Scanner(tmp_path, settings())
     assert s._claim() is True
     assert s._claim() is False
 
-    ergebnisse = []
-    threads = [threading.Thread(target=lambda: ergebnisse.append(s._claim()))
+    results = []
+    threads = [threading.Thread(target=lambda: results.append(s._claim()))
                for _ in range(10)]
     for th in threads:
         th.start()
     for th in threads:
         th.join()
-    assert ergebnisse == [False] * 10
+    assert results == [False] * 10
 
     s._release()
     assert s._claim() is True
     s._release()
 
 
-def test_pending_waehlt_nur_offene_filme(tmp_path):
-    daten = {"title": "X", "year": "2020", "tmdb": "1", "imdb": None, "trailer": ""}
-    fertig = str(tmp_path / "fertig.nfo")
-    offen = str(tmp_path / "offen.nfo")
-    alt = str(tmp_path / "alt.nfo")
-    for pfad in (fertig, offen, alt):
-        db.upsert_movie(pfad, str(tmp_path), daten, 1.0, 10)
+def test_pending_picks_only_open_movies(tmp_path):
+    data = {"title": "X", "year": "2020", "tmdb": "1", "imdb": None, "trailer": ""}
+    done = str(tmp_path / "done.nfo")
+    open_one = str(tmp_path / "open.nfo")
+    stale = str(tmp_path / "stale.nfo")
+    for path in (done, open_one, stale):
+        db.upsert_movie(path, str(tmp_path), data, 1.0, 10)
 
-    db.mark_result(fertig, "ok", "fertig", trailer="plugin://x", written=True)
-    db.mark_result(alt, "no_trailer", "nichts gefunden")
-    with db.connect() as con:                     # letzte Pruefung lange her
+    db.mark_result(done, "ok", "done", trailer="plugin://x", written=True)
+    db.mark_result(stale, "no_trailer", "nothing found")
+    with db.connect() as con:                     # last check long ago
         con.execute("UPDATE movies SET last_checked=? WHERE path=?",
-                    (time.time() - 90 * 86400, alt))
+                    (time.time() - 90 * 86400, stale))
 
-    pfade = {r["path"] for r in db.pending_movies(30 * 86400)}
-    assert offen in pfade and alt in pfade and fertig not in pfade
+    paths = {r["path"] for r in db.pending_movies(30 * 86400)}
+    assert open_one in paths and stale in paths and done not in paths
 
-    alle = {r["path"] for r in db.pending_movies(30 * 86400, overwrite_existing=True)}
-    assert fertig in alle
+    everything = {r["path"] for r in db.pending_movies(30 * 86400, overwrite_existing=True)}
+    assert done in everything
+
+
+def test_stats_count_the_first_configured_language(tmp_path):
+    data = {"title": "Y", "year": "2020", "tmdb": "2", "imdb": None, "trailer": "x"}
+    path = str(tmp_path / "lang.nfo")
+    db.upsert_movie(path, str(tmp_path), data, 1.0, 10)
+    db.note_trailer_lang(path, "fr")
+
+    assert db.stats("fr")["primary_lang"] >= 1
+    assert db.stats("fr")["primary_lang_code"] == "fr"
