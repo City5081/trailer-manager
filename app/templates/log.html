@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>{{ t('log.runs') }}</h2>
+  <table>
+    <thead><tr><th>{{ t('log.time') }}</th><th>{{ t('run.trigger') }}</th><th>{{ t('run.scanned') }}</th>
+      <th>{{ t('run.checked') }}</th><th>{{ t('run.updated') }}</th><th>{{ t('run.failed') }}</th><th>{{ t('run.duration') }}</th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+      <tr>
+        <td class="mono small">{{ r['started']|ts }}</td>
+        <td>{{ r['trigger'] }}</td><td>{{ r['scanned'] }}</td><td>{{ r['checked'] }}</td>
+        <td>{{ r['updated'] }}</td><td>{{ r['failed'] }}</td>
+        <td>{% if r['finished'] %}{{ '%.0f'|format(r['finished'] - r['started']) }}s{% else %}...{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>{{ t('log.title') }}</h2>
+  <table>
+    <thead><tr><th>{{ t('log.time') }}</th><th>{{ t('log.level') }}</th><th>{{ t('log.source') }}</th><th>{{ t('log.message') }}</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+      <tr class="lvl-{{ e['level'] }}">
+        <td class="mono small">{{ e['ts']|ts }}</td>
+        <td>{{ e['level'] }}</td><td>{{ e['source'] }}</td><td>{{ e['message'] }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">{{ t('log.empty') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="post" class="card">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <h1>{{ t('settings.title') }}</h1>
+
+  <h2>{{ t('settings.tmdb') }}</h2>
+  <label>{{ t('settings.api_key') }}<input name="tmdb_api_key" value="{{ values.tmdb_api_key }}" autocomplete="off"></label>
+  <label>{{ t('settings.languages') }}<input name="languages" value="{{ values.languages }}"></label>
+  <p class="hint">{{ t('settings.languages_hint') }}</p>
+
+  <h2>{{ t('settings.writing') }}</h2>
+  <label>{{ t('settings.link_format') }}
+    <select name="link_format">
+      {% for key, entry in link_formats.items() %}
+        <option value="{{ key }}" {% if values.link_format == key %}selected{% endif %}>{{ entry[0] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="inline"><input type="checkbox" name="keep_format" {% if values.keep_format %}checked{% endif %}> {{ t('settings.keep_format') }}</label>
+  <label class="inline"><input type="checkbox" name="backup" {% if values.backup %}checked{% endif %}> {{ t('settings.backup') }}</label>
+  <label class="inline"><input type="checkbox" name="lockdata" {% if values.lockdata %}checked{% endif %}> {{ t('settings.lockdata') }}</label>
+  <label class="inline"><input type="checkbox" name="overwrite_existing" {% if values.overwrite_existing %}checked{% endif %}> {{ t('settings.overwrite') }}</label>
+
+  <h2>{{ t('settings.schedule') }}</h2>
+  <label>{{ t('settings.interval') }}<input name="scan_interval_hours" value="{{ values.scan_interval_hours }}" size="6"></label>
+  <label>{{ t('settings.recheck') }}<input name="recheck_days" value="{{ values.recheck_days }}" size="6"></label>
+  <label class="inline"><input type="checkbox" name="scan_on_start" {% if values.scan_on_start %}checked{% endif %}> {{ t('settings.scan_on_start') }}</label>
+
+  <h2>{{ t('settings.ui') }}</h2>
+  <label>{{ t('settings.ui_language') }}
+    <select name="ui_language">
+      {% for code, label in languages.items() %}
+        <option value="{{ code }}" {% if values.ui_language == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <div class="toolbar">
+    <button class="primary" type="submit">{{ t('action.save') }}</button>
+    <button formaction="{{ url_for('settings_test') }}" formmethod="post">{{ t('action.test') }}</button>
+  </div>
+</form>
+
+<div class="card">
+  <h2>{{ t('settings.webhook') }}</h2>
+  <p class="hint">{{ t('settings.webhook_hint') }}</p>
+  <p class="mono break">{{ webhook_url }}</p>
+</div>
+{% endblock %}

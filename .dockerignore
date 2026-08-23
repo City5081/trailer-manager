@@ -1,0 +1,16 @@
+.git/
+.github/
+.venv/
+config/
+tests/
+tools/
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.sqlite3-*
+.env
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+README.md
+docker-compose.yml

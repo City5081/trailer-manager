@@ -1,0 +1,27 @@
+services:
+  trailer-de:
+    # Selbst bauen:
+    build: .
+    # Oder das fertige Image aus der GitHub-Registry verwenden und die Zeile
+    # "build: ." darueber auskommentieren:
+    # image: ghcr.io/City5081/trailer-de:latest
+    container_name: trailer-de
+    restart: unless-stopped
+    # Alle Werte stehen in der .env (Vorlage: .env.example).
+    env_file:
+      - .env
+    ports:
+      - "${HOST_PORT:-8099}:8080"
+    environment:
+      TZ: "${TZ:-Europe/Vienna}"
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+    volumes:
+      - "${CONFIG_PATH:-./config}:/config"
+      # Muss beschreibbar sein, sonst koennen die NFOs nicht geaendert werden.
+      - "${MOVIES_PATH:-/mnt/user/Filme}:/movies"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 60s
+      timeout: 5s
+      start_period: 20s

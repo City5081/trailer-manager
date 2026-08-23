@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t('app.title') }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <strong>{{ t('app.title') }}</strong>
+    <span class="sub">{{ t('app.subtitle') }}</span>
+  </div>
+  <nav>
+    {% if session.get('user') or auth_disabled %}
+      <a href="{{ url_for('index') }}">{{ t('nav.movies') }}</a>
+      <a href="{{ url_for('settings_page') }}">{{ t('nav.settings') }}</a>
+      <a href="{{ url_for('log_page') }}">{{ t('nav.log') }}</a>
+    {% endif %}
+    <span class="langs">
+      {% for code, label in languages.items() %}
+        <a class="lang {% if code == lang %}active{% endif %}"
+           href="{{ url_for('switch_language', code=code) }}" title="{{ label }}">{{ code|upper }}</a>
+      {% endfor %}
+    </span>
+    {% if session.get('user') %}<a href="{{ url_for('logout') }}">{{ t('nav.logout') }}</a>{% endif %}
+  </nav>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flashes">
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<main>{% block content %}{% endblock %}</main>
+<footer><span id="statusline"></span></footer>
+
+<script>
+async function poll() {
+  try {
+    const r = await fetch('{{ url_for("status") }}');
+    if (!r.ok) return;
+    const d = await r.json();
+    const el = document.getElementById('statusline');
+    if (d.busy) {
+      const s = d.state;
+      el.textContent = s.phase + ' \u2014 ' + s.done + '/' + s.total + ' ' + (s.current || '');
+      el.className = 'busy';
+    } else {
+      el.textContent = '{{ t("status.idle") }}';
+      el.className = '';
+    }
+  } catch (e) { /* Oberflaeche laeuft auch ohne Statusanzeige weiter */ }
+}
+poll(); setInterval(poll, 3000);
+</script>
+</body>
+</html>

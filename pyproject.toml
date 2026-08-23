@@ -1,0 +1,14 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "C4"]
+# E741: in Sprachlisten heisst die Laufvariable nun einmal l.
+# UP steht bewusst nicht in der Liste: die Anwendung schreibt durchgehend
+# .format(), das soll nicht halb auf f-Strings umgestellt werden.
+ignore = ["E741"]

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+{% set vid = video_id(movie['trailer']) %}
+<div class="card">
+  <h1>{{ movie['title'] }} {% if movie['year'] %}<small>({{ movie['year'] }})</small>{% endif %}</h1>
+  <p class="mono small break">{{ movie['path'] }}</p>
+  <p>TMDB: {{ movie['tmdb_id'] or '-' }} &middot; IMDb: {{ movie['imdb_id'] or '-' }} &middot;
+     <span class="state {{ movie['state'] }}">{{ t('state.' + (movie['state'] or 'pending')) }}</span>
+     {% if movie['message'] %}<span class="hint">{{ movie['message'] }}</span>{% endif %}</p>
+
+  <form method="post" action="{{ url_for('movie_save') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="path" value="{{ movie['path'] }}">
+    <label>{{ t('detail.link') }}
+      <input class="mono" name="link" value="{{ movie['trailer'] or '' }}">
+    </label>
+    <p class="hint">{{ t('detail.link_hint') }}</p>
+    <div class="toolbar">
+      <button class="primary" type="submit">{{ t('action.save') }}</button>
+      {% if vid %}
+        <a class="btn" target="_blank" rel="noopener" href="https://www.youtube.com/watch?v={{ vid }}">&#9654; {{ t('action.open_youtube') }}</a>
+      {% endif %}
+      <a class="btn" href="{{ url_for('movie_detail', path=movie['path'], search=1) }}">{{ t('action.search') }}</a>
+      <a class="btn" target="_blank" rel="noopener" href="{{ url_for('movie_diag', path=movie['path']) }}">{{ t('action.diag') }}</a>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('movie_check') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="path" value="{{ movie['path'] }}">
+    <button>{{ t('action.search') }} + {{ t('action.save') }}</button>
+  </form>
+</div>
+
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+
+{% if request.args.get('search') == '1' %}
+<div class="card">
+  <h2>{{ t('detail.candidates') }}</h2>
+  {% if candidates %}
+  <table>
+    <thead><tr><th>{{ t('table.lang') }}</th><th>Typ</th><th>Name</th><th></th></tr></thead>
+    <tbody>
+      {% for c in candidates %}
+      <tr>
+        <td><b>{{ c['lang']|upper }}</b>{% if c['region'] %}-{{ c['region'] }}{% endif %}</td>
+        <td>{{ c['type'] }}{% if c['official'] %} <span class="badge">{{ t('detail.official') }}</span>{% endif %}</td>
+        <td>{{ c['name'] }}</td>
+        <td class="actions">
+          <a class="btn small" target="_blank" rel="noopener" href="https://www.youtube.com/watch?v={{ c['key'] }}">&#9654;</a>
+          <form method="post" action="{{ url_for('movie_save') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="path" value="{{ movie['path'] }}">
+            <input type="hidden" name="link" value="{{ c['key'] }}">
+            <input type="hidden" name="lang" value="{{ c['lang'] }}">
+            <button class="small primary">{{ t('action.apply') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>{{ t('detail.none') }}</p>{% endif %}
+</div>
+{% endif %}
+{% endblock %}
