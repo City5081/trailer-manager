@@ -55,13 +55,16 @@ anime films looking for Japanese trailers, and one for series, side by side.
 ```bash
 mkdir trailer-manager && cd trailer-manager
 curl -O https://raw.githubusercontent.com/City5081/trailer-manager/main/docker-compose.yml
+# adjust the paths under volumes:, then
 docker compose up -d
 ```
 
 Then open `http://SERVER:8099` and follow the setup wizard.
 
-Only two things usually need adjusting in `docker-compose.yml`: the path to your
-movies and, if 8099 is taken, the host port. Everything else has a default.
+`docker-compose.yml` is the only file to edit, and usually only its `volumes:`
+section. There is no `.env`: nothing in the compose file is secret, because the
+account and the TMDB API key are asked for in the browser and stored in
+`/config`.
 
 The image is `ghcr.io/city5081/trailer-manager:latest` — built for `linux/amd64` and
 `linux/arm64`. The name is lowercase throughout because Docker does not allow
@@ -70,8 +73,8 @@ capitals in image names.
 ### Unraid
 
 Use *Docker → Add Container*, or the Compose Manager: paste the contents of
-`docker-compose.yml` into *Edit Stack*. An `.env` file is not required — the
-compose file carries defaults for every variable it uses.
+`docker-compose.yml` into *Edit Stack*. No `.env` file is involved — every value
+is written out in the compose file itself.
 
 | Path / variable | Value |
 |---|---|
@@ -95,14 +98,20 @@ a name, the folder **as seen inside the container**, and whether it holds movies
 or TV shows.
 
 Every extra folder needs a volume in `docker-compose.yml` first, otherwise the
-container cannot see it:
+container cannot see it. Volumes live there and nowhere else — adding a library
+always means adding a line:
 
 ```yaml
     volumes:
+      - "/mnt/user/appdata/trailer-manager:/config"
       - "/mnt/user/Movies:/movies"
       - "/mnt/user/Anime:/anime"
       - "/mnt/user/Shows:/shows"
 ```
+
+The left side is the folder on your server, the right side is the path you enter
+under *Settings → Libraries*. After changing volumes the container has to be
+recreated (`docker compose up -d`), not just restarted.
 
 Then add `/anime` and `/shows` as libraries. Each may override the global
 language, link format, backup, lockdata and recheck interval — leave a field
@@ -115,9 +124,10 @@ are never touched.
 ## Configuration
 
 Everything is configured in the browser: the wizard on first start, and
-*Settings* afterwards. Environment variables are optional and only useful for
-unattended deployments — they act as the starting value, and the interface takes
-precedence.
+*Settings* afterwards. The environment variables below are optional and only
+useful for unattended deployments — they act as the starting value, and the
+interface takes precedence. Add them under `environment:` in the compose file if
+you need them.
 
 | Variable | Meaning |
 |---|---|
@@ -140,9 +150,9 @@ precedence.
 | `PUID` / `PGID` | ownership of files written by the container |
 | `PORT` | port inside the container (default 8081) |
 
-Host side, `HOST_PORT`, `MOVIES_PATH` and `CONFIG_PATH` control what
-`docker-compose.yml` publishes and mounts. `MOVIES_DIR` only seeds the very
-first library; afterwards the folders come from the database.
+The published port and the mounted folders are plain values in
+`docker-compose.yml`. `MOVIES_DIR` only seeds the very first library; after that
+the folders come from the database.
 
 ## Webhook
 

@@ -6,21 +6,32 @@ services:
     # build: .
     container_name: trailer-manager
     restart: unless-stopped
+
+    # Host port on the left, the application inside the container on the right.
     ports:
-      - "${HOST_PORT:-8099}:8081"
+      - "8099:8081"
+
     environment:
-      TZ: "${TZ:-Europe/Berlin}"
+      TZ: "Europe/Berlin"
       # Ownership of the files this container writes. On Unraid: 99/100.
-      PUID: "${PUID:-99}"
-      PGID: "${PGID:-100}"
+      PUID: "99"
+      PGID: "100"
+      # Nothing else is needed here: account, TMDB API key and all behaviour
+      # settings are asked for by the setup wizard on first start and kept in
+      # /config. See the README for the optional overrides.
+
     volumes:
-      - "${CONFIG_PATH:-./config}:/config"
-      # Must be writable, otherwise the NFOs cannot be changed.
-      - "${MOVIES_PATH:-/mnt/user/Movies}:/movies"
-      # Add a volume per extra library and enter the container path
-      # (/anime, /shows) under Settings -> Libraries:
+      # Database, session key and webhook token. Keep this one.
+      - "/mnt/user/appdata/trailer-manager:/config"
+
+      # One line per library, "<folder on the host>:<path in the container>".
+      # The path on the right is what you enter under Settings -> Libraries,
+      # where you also choose whether it holds movies or TV shows.
+      # All of them must be writable, otherwise the NFOs cannot be changed.
+      - "/mnt/user/Movies:/movies"
       # - "/mnt/user/Anime:/anime"
       # - "/mnt/user/Shows:/shows"
+
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8081/health"]
       interval: 60s
