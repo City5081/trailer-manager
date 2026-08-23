@@ -24,7 +24,7 @@ STRINGS = {
         "login.hint": "Zugangsdaten stammen aus der Einrichtung oder aus den "
                       "Umgebungsvariablen des Containers.",
 
-        "stats.total": "Filme",
+        "stats.total": "Eintraege",
         "stats.with_trailer": "mit Trailer",
         "stats.primary_lang": "in Zielsprache",
         "stats.no_trailer": "ohne Trailer",
@@ -36,6 +36,11 @@ STRINGS = {
         "action.run_force": "Alle neu pruefen",
         "action.stop": "Abbrechen",
         "action.search": "Trailer suchen",
+        "action.auto": "Automatisch suchen",
+        "action.auto_hint": "Sucht den besten Trailer und schreibt ihn sofort in "
+                            "die NFO.",
+        "action.manual": "Haendisch suchen",
+        "action.manual_hint": "Zeigt alle gefundenen Trailer zur Auswahl.",
         "action.save": "Speichern",
         "action.open_youtube": "Auf YouTube ansehen",
         "action.diag": "Schreibrechte pruefen",
@@ -50,6 +55,7 @@ STRINGS = {
         "table.year": "Jahr",
         "table.tmdb": "TMDB",
         "table.trailer": "Trailer",
+        "table.library": "Bibliothek",
         "table.lang": "Sprache",
         "table.lang_unknown": "noch nicht geprueft",
         "table.state": "Status",
@@ -161,6 +167,7 @@ STRINGS = {
         "library.kind_tv": "Serien",
         "library.entries": "Eintraege",
         "library.enabled": "aktiv",
+        "library.disabled": "abgeschaltet",
         "library.add": "Bibliothek hinzufuegen",
         "library.added": "Bibliothek angelegt.",
         "library.deleted": "Bibliothek entfernt. Die NFO-Dateien selbst wurden nicht "
@@ -224,7 +231,7 @@ STRINGS = {
         "login.hint": "Credentials come from the setup wizard or from the "
                       "container's environment variables.",
 
-        "stats.total": "movies",
+        "stats.total": "entries",
         "stats.with_trailer": "with trailer",
         "stats.primary_lang": "in target language",
         "stats.no_trailer": "no trailer",
@@ -236,6 +243,11 @@ STRINGS = {
         "action.run_force": "Recheck all",
         "action.stop": "Stop",
         "action.search": "Search trailers",
+        "action.auto": "Search automatically",
+        "action.auto_hint": "Picks the best trailer and writes it into the NFO "
+                            "right away.",
+        "action.manual": "Choose by hand",
+        "action.manual_hint": "Shows every trailer that was found, to pick from.",
         "action.save": "Save",
         "action.open_youtube": "Watch on YouTube",
         "action.diag": "Check write access",
@@ -250,6 +262,7 @@ STRINGS = {
         "table.year": "Year",
         "table.tmdb": "TMDB",
         "table.trailer": "Trailer",
+        "table.library": "Library",
         "table.lang": "Lang",
         "table.lang_unknown": "not checked yet",
         "table.state": "State",
@@ -357,6 +370,7 @@ STRINGS = {
         "library.kind_tv": "TV shows",
         "library.entries": "entries",
         "library.enabled": "enabled",
+        "library.disabled": "disabled",
         "library.add": "Add library",
         "library.added": "Library created.",
         "library.deleted": "Library removed. The NFO files themselves were not touched.",

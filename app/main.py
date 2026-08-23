@@ -63,11 +63,30 @@ def flag(key, default="0"):
     return str(setting(key, default)) in ("1", "true", "True", "on", "yes")
 
 
-def primary_language():
-    """First configured language - the one the dashboard counts."""
-    raw = setting("languages", "de") or "de"
-    first = raw.split(",")[0].strip().split("-")[0]
+def primary_language(lib=None):
+    """First configured language - the one the dashboard counts.
+
+    A library may point at a different one, so an anime library looking for
+    Japanese trailers is measured against Japanese, not against German.
+    """
+    raw = None
+    if lib is not None:
+        raw = lib["languages"]
+    if not raw:
+        raw = setting("languages", "de") or "de"
+    first = str(raw).split(",")[0].strip().split("-")[0]
     return (first or "de").lower()
+
+
+def library_stats(library_id=None):
+    """One block of counts per library, so they are never lumped together."""
+    out = []
+    for lib in db.list_libraries():
+        if library_id is not None and lib["id"] != library_id:
+            continue
+        out.append({"lib": lib,
+                    "stats": db.stats(primary_language(lib), lib["id"])})
+    return out
 
 
 # ------------------------------------------------------------------------ auth
@@ -399,7 +418,7 @@ def index():
                                  library_id=library_id)
     return render_template("index.html", movies=rows, total=total, page=page,
                            pages=max(1, (total + per_page - 1) // per_page),
-                           stats=db.stats(primary_language(), library_id),
+                           library_stats=library_stats(library_id),
                            libraries=db.list_libraries(), library_id=library_id,
                            search=search, state=state,
                            only_missing=only_missing, video_id=nfo.video_id_from)
@@ -467,7 +486,8 @@ def movie_check():
         abort(404)
     status, msg = SCANNER.process_movie(row, force=True)
     flash("{}: {}".format(status, msg), "ok" if status == "ok" else "error")
-    return redirect(url_for("movie_detail", path=path))
+    # Back to wherever the button was pressed - the list or the detail page.
+    return redirect(_back())
 
 
 @app.route("/movie/diag")

@@ -131,3 +131,16 @@ footer {
        padding: 10px 12px; }
 .steps { margin: 6px 0 4px; padding-left: 20px; color: var(--text); font-size: 13px; }
 .steps li { margin: 4px 0; }
+
+.libcard { margin-bottom: 14px; }
+.libhead { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px;
+           margin-bottom: 6px; }
+.libhead a { color: var(--text); text-decoration: none; font-weight: 600;
+             font-size: 15px; }
+.libhead a:hover { color: var(--accent); }
+/* Six tiles per library, three libraries: keep them compact enough that the
+   movie list is still on screen without scrolling past a wall of numbers. */
+.libcard .stats { margin-bottom: 0; gap: 8px; }
+.libcard .stats div { min-width: 88px; padding: 8px 12px; }
+.libcard .stats b { font-size: 18px; }
+.libcard .stats span { font-size: 11px; }
