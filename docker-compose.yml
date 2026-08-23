@@ -13,16 +13,6 @@ services:
       # Ownership of the files this container writes. On Unraid: 99/100.
       PUID: "${PUID:-99}"
       PGID: "${PGID:-100}"
-
-      # Nothing else is required. User name, password, TMDB API key and all
-      # behaviour settings are asked for by the setup wizard on first start.
-      # The optional overrides below are only for unattended deployments:
-      # WEB_USERNAME: "admin"
-      # WEB_PASSWORD_HASH: "scrypt:32768:8:1$..."   # tools/hash_password.py
-      # TMDB_API_KEY: "your-v3-api-key"
-      # WEBHOOK_TOKEN: "generated automatically when left unset"
-      # COOKIE_SECURE: "true"                        # behind TLS
-      # AUTH_DISABLED: "false"                       # only with an auth proxy
     volumes:
       - "${CONFIG_PATH:-./config}:/config"
       # Must be writable, otherwise the NFOs cannot be changed.
