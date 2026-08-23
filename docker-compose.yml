@@ -4,7 +4,7 @@ services:
     build: .
     # Oder das fertige Image aus der GitHub-Registry verwenden und die Zeile
     # "build: ." darueber auskommentieren:
-    # image: ghcr.io/City5081/trailer-de:latest
+    # image: ghcr.io/city5081/trailer-de:latest
     container_name: trailer-de
     restart: unless-stopped
     # Alle Werte stehen in der .env (Vorlage: .env.example).

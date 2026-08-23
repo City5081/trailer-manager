@@ -43,8 +43,12 @@ Statt selbst zu bauen lässt sich auch das fertige Image verwenden – in der
 `docker-compose.yml` `build: .` auskommentieren und die `image:`-Zeile aktivieren:
 
 ```
-ghcr.io/City5081/trailer-de:latest
+ghcr.io/city5081/trailer-de:latest
 ```
+
+Der Image-Name ist durchgehend klein geschrieben: Docker lässt in Image-Namen
+keine Großbuchstaben zu, auch wenn der GitHub-Benutzername welche hat. Die
+Action schreibt aus demselben Grund nach `city5081`.
 
 Zufallswerte für `SECRET_KEY` und `WEBHOOK_TOKEN`:
 
@@ -54,7 +58,13 @@ openssl rand -hex 32
 
 ### Unraid
 
-Über *Docker → Add Container* oder per Compose-Plugin. Wichtig:
+Für den Compose Manager liegt eine eigene Fassung bereit:
+[`docker-compose.unraid.yml`](docker-compose.unraid.yml) – ohne `build:` und ohne
+`env_file:`, denn der Compose Manager legt auf dem Server weder ein
+Quellverzeichnis noch eine `.env` an. Inhalt in *Edit Stack* einfügen, Werte
+eintragen, fertig.
+
+Alternativ über *Docker → Add Container*. Wichtig ist in beiden Fällen:
 
 | Pfad/Variable | Wert |
 |---|---|
