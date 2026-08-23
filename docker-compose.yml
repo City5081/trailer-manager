@@ -9,7 +9,7 @@ services:
     ports:
       - "${HOST_PORT:-8099}:8081"
     environment:
-      TZ: "${TZ:-Europe/Vienna}"
+      TZ: "${TZ:-Europe/Berlin}"
       # Ownership of the files this container writes. On Unraid: 99/100.
       PUID: "${PUID:-99}"
       PGID: "${PGID:-100}"
