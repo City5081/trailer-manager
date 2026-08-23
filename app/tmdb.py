@@ -34,7 +34,7 @@ def get(path, api_key, **params):
     params["api_key"] = api_key
     url = "{}{}?{}".format(API, path, urlencode(params))
     req = Request(url, headers={"Accept": "application/json",
-                                "User-Agent": "trailer-de/1.0"})
+                                "User-Agent": "trailer-manager/0.2"})
     last = None
     for attempt in range(3):
         try:
@@ -69,9 +69,15 @@ def selftest(api_key):
     return len(data.get("results") or [])
 
 
-def lookup_by_imdb(imdb_id, api_key):
+# TMDB keeps movies and TV shows behind separate paths; everything else about
+# the videos endpoint is identical.
+KIND_PATHS = {"movie": "movie", "tv": "tv"}
+KIND_RESULTS = {"movie": "movie_results", "tv": "tv_results"}
+
+
+def lookup_by_imdb(imdb_id, api_key, kind="movie"):
     data = get("/find/{}".format(imdb_id), api_key, external_source="imdb_id")
-    results = (data or {}).get("movie_results") or []
+    results = (data or {}).get(KIND_RESULTS.get(kind, "movie_results")) or []
     return str(results[0]["id"]) if results else None
 
 
@@ -90,8 +96,9 @@ def _usable(videos):
             and (v.get("type") or "").lower() in ("trailer", "teaser")]
 
 
-def fetch_videos(tmdb_id, api_key, langs):
-    """Collect all videos of a movie, each with its actual language."""
+def fetch_videos(tmdb_id, api_key, langs, kind="movie"):
+    """Collect all videos of a movie or TV show, each with its actual language."""
+    section = KIND_PATHS.get(kind, "movie")
     variants = []
     for lang in langs:
         base = lang.split("-")[0]
@@ -116,7 +123,7 @@ def fetch_videos(tmdb_id, api_key, langs):
     def have_wanted():
         return any(v.get("lang") in wanted for v in _usable(found.values()))
 
-    data = get("/movie/{}/videos".format(tmdb_id), api_key,
+    data = get("/{}/{}/videos".format(section, tmdb_id), api_key,
                language=variants[0], include_video_language=include)
     absorb((data or {}).get("results"))
     if have_wanted():
@@ -126,7 +133,7 @@ def fetch_videos(tmdb_id, api_key, langs):
         return list(found.values())
 
     for lang in variants:
-        data = get("/movie/{}/videos".format(tmdb_id), api_key, language=lang)
+        data = get("/{}/{}/videos".format(section, tmdb_id), api_key, language=lang)
         absorb((data or {}).get("results"))
         if have_wanted():
             break

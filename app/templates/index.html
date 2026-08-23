@@ -18,6 +18,12 @@
 
 <form method="get" class="filters">
   <input name="q" value="{{ search }}" placeholder="{{ t('filter.search') }}">
+  <select name="library">
+    <option value="">{{ t('library.all') }}</option>
+    {% for lib in libraries %}
+      <option value="{{ lib['id'] }}" {% if library_id == lib['id'] %}selected{% endif %}>{{ lib['name'] }}</option>
+    {% endfor %}
+  </select>
   <select name="state">
     <option value="">{{ t('filter.all') }}</option>
     {% for s in ['ok','pending','no_trailer','no_id','error'] %}
@@ -31,7 +37,8 @@
 
 <table>
   <thead><tr>
-    <th>{{ t('table.title') }}</th><th>{{ t('table.year') }}</th><th>{{ t('table.tmdb') }}</th>
+    <th>{{ t('table.title') }}</th><th>{{ t('library.title') }}</th>
+    <th>{{ t('table.year') }}</th><th>{{ t('table.tmdb') }}</th>
     <th>{{ t('table.trailer') }}</th><th>{{ t('table.lang') }}</th><th>{{ t('table.state') }}</th>
     <th>{{ t('table.actions') }}</th>
   </tr></thead>
@@ -40,6 +47,7 @@
     {% set vid = video_id(m['trailer']) %}
     <tr>
       <td><a href="{{ url_for('movie_detail', path=m['path']) }}">{{ m['title'] }}</a></td>
+      <td class="small muted">{{ m['library_name'] or '' }}</td>
       <td>{{ m['year'] or '' }}</td>
       <td>{{ m['tmdb_id'] or '-' }}</td>
       <td class="mono">{{ vid or (m['trailer'] and '?' or '-') }}</td>
@@ -52,7 +60,7 @@
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="7" class="empty">{{ t('table.empty') }}</td></tr>
+    <tr><td colspan="8" class="empty">{{ t('table.empty') }}</td></tr>
   {% endfor %}
   </tbody>
 </table>
@@ -61,7 +69,7 @@
 <div class="pager">
   {% for p in range(1, pages + 1) %}
     {% if p == page %}<b>{{ p }}</b>
-    {% else %}<a href="{{ url_for('index', q=search, state=state, missing='1' if only_missing else None, page=p) }}">{{ p }}</a>{% endif %}
+    {% else %}<a href="{{ url_for('index', q=search, state=state, library=library_id, missing='1' if only_missing else None, page=p) }}">{{ p }}</a>{% endif %}
   {% endfor %}
 </div>
 {% endif %}

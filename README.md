@@ -2,12 +2,13 @@
   <img src="app/static/logo.svg" width="72" alt="">
 </p>
 
-<h1 align="center">Trailer DE</h1>
+<h1 align="center">Trailer Manager</h1>
 
 <p align="center">
-  Writes German trailers from <a href="https://www.themoviedb.org">themoviedb.org</a>
-  into the <code>.nfo</code> files of an Emby movie library — on a schedule, at the
-  push of a button, or the moment Emby or Jellyseerr reports a new movie.
+  Writes trailers from <a href="https://www.themoviedb.org">themoviedb.org</a>
+  in the language you want into the <code>.nfo</code> files of an Emby library —
+  on a schedule, at the push of a button, or the moment Emby or Jellyseerr
+  reports a new item.
 </p>
 
 ---
@@ -16,16 +17,24 @@ Emby fetches trailers from TMDB by itself and almost always ends up with the
 English one. When a `<trailer>` entry is present in the NFO, Emby uses that
 instead. This tool fills in that entry.
 
-Despite the name, the target language is configurable — `de` is only the
-default. Set `en`, `fr`, or `de,en` and it behaves accordingly.
+Any number of libraries can be configured, each pointing at its own folder and
+holding either movies or TV shows — a German movie library, a separate one for
+anime films looking for Japanese trailers, and one for series, side by side.
 
 ## Features
 
-- **Setup wizard** on first start: account, TMDB API key, language and schedule
-  are asked for in the browser. No environment variables needed.
-- **Persistent database** (SQLite): an automatic run only looks at movies that
+- **Setup wizard** on first start: account, library folder, TMDB API key,
+  language and schedule are asked for in the browser. No environment variables
+  needed.
+- **Several libraries**, each with its own folder, its own kind (movies or TV
+  shows) and its own overrides for language, link format and recheck interval.
+  Anything left empty follows the global setting.
+- **Persistent database** (SQLite): an automatic run only looks at entries that
   are new, whose NFO changed, or that came back empty last time. With 1600
   movies the second run takes seconds instead of hours.
+- **TV shows**: the `tvshow.nfo` of each series gets the trailer; episode NFOs
+  are never even opened, so a library with thousands of episodes still scans
+  quickly.
 - **Schedule** at a configurable interval, plus a run at startup.
 - **Webhook** for Emby, Jellyfin and Jellyseerr: new movie → trailer set at once.
 - **Web interface** with a movie list, search, filters, per-movie lookup and
@@ -44,8 +53,8 @@ default. Set `en`, `fr`, or `de,en` and it behaves accordingly.
 ## Quick start
 
 ```bash
-mkdir trailer-de && cd trailer-de
-curl -O https://raw.githubusercontent.com/City5081/trailer-de/main/docker-compose.yml
+mkdir trailer-manager && cd trailer-manager
+curl -O https://raw.githubusercontent.com/City5081/trailer-manager/main/docker-compose.yml
 docker compose up -d
 ```
 
@@ -54,7 +63,7 @@ Then open `http://SERVER:8099` and follow the setup wizard.
 Only two things usually need adjusting in `docker-compose.yml`: the path to your
 movies and, if 8099 is taken, the host port. Everything else has a default.
 
-The image is `ghcr.io/city5081/trailer-de:latest` — built for `linux/amd64` and
+The image is `ghcr.io/city5081/trailer-manager:latest` — built for `linux/amd64` and
 `linux/arm64`. The name is lowercase throughout because Docker does not allow
 capitals in image names.
 
@@ -67,7 +76,7 @@ compose file carries defaults for every variable it uses.
 | Path / variable | Value |
 |---|---|
 | `/movies` | share holding the movies, **read/write** |
-| `/config` | e.g. `/mnt/user/appdata/trailer-de` |
+| `/config` | e.g. `/mnt/user/appdata/trailer-manager` |
 | Port | `8099` → `8081` |
 | `PUID` / `PGID` | `99` / `100` |
 
@@ -78,6 +87,30 @@ the share.
 If the NFOs belong to Emby or another container, *Tools → New Permissions*
 helps; otherwise writing fails with "Permission denied". The *Check write
 access* button on a movie's detail page reports exactly what is wrong.
+
+## Libraries
+
+The wizard sets up the first one. More are added under *Settings → Libraries*:
+a name, the folder **as seen inside the container**, and whether it holds movies
+or TV shows.
+
+Every extra folder needs a volume in `docker-compose.yml` first, otherwise the
+container cannot see it:
+
+```yaml
+    volumes:
+      - "/mnt/user/Movies:/movies"
+      - "/mnt/user/Anime:/anime"
+      - "/mnt/user/Shows:/shows"
+```
+
+Then add `/anime` and `/shows` as libraries. Each may override the global
+language, link format, backup, lockdata and recheck interval — leave a field
+empty to keep the global value. A library can also be disabled temporarily
+without losing what has been scanned.
+
+Deleting a library removes its entries from the database only. The NFO files
+are never touched.
 
 ## Configuration
 
@@ -108,7 +141,8 @@ precedence.
 | `PORT` | port inside the container (default 8081) |
 
 Host side, `HOST_PORT`, `MOVIES_PATH` and `CONFIG_PATH` control what
-`docker-compose.yml` publishes and mounts.
+`docker-compose.yml` publishes and mounts. `MOVIES_DIR` only seeds the very
+first library; afterwards the folders come from the database.
 
 ## Webhook
 
@@ -137,20 +171,35 @@ notification type *Item Added*, item type *Movies*.
 
 **Jellyseerr** — Settings → Notifications → Webhook, trigger *Media Available*.
 
-The movie is matched by the file path from the notification first, then by TMDB
-id; if it is still unknown, its folder is read on the spot.
+The item is matched by the file path from the notification first, then by TMDB
+id; if it is still unknown, its folder is read on the spot. For a series the
+notification usually points at an episode file, so the path is walked upwards
+towards the library root until the `tvshow.nfo` is found.
+
+### Did it arrive?
+
+Emby has a test button on its webhook settings. Every request that gets past the
+token check is logged, so after pressing it you see the arrival in two places:
+*Settings → Webhook* shows the timestamp of the last one, and *Log* holds the
+full line with the event name and the sending address. A test event is
+deliberately not acted upon — it shows up as received and then ignored, which is
+exactly the signal you want.
+
+If nothing appears at all, the request never reached the container: check the
+address, the port and whether the token in the URL is complete.
 
 ## What gets checked
 
 An automatic run picks up:
 
-- new movies, and movies whose NFO changed since last time
-- movies without a trailer entry
-- movies that came back empty, once the last check is older than `RECHECK_DAYS`
-  (TMDB gains trailers all the time)
+- new entries, and entries whose NFO changed since last time
+- entries without a trailer entry
+- entries that came back empty, once the last check is older than the recheck
+  interval of their library (TMDB gains trailers all the time)
 
-Finished movies are left alone — unless *recheck movies that are already done*
-is set, or you press *Recheck all*.
+Finished entries are left alone — unless *recheck movies that are already done*
+is set, or you press *Recheck all*. A single library can be rechecked on its own
+from *Settings → Libraries*.
 
 ## Security
 
@@ -187,9 +236,9 @@ The test suite needs no network: TMDB is stubbed out everywhere.
 
 ```
 app/
-  main.py      Flask application: login, setup wizard, pages, webhook
+  main.py      Flask application: login, setup wizard, libraries, pages, webhook
   scanner.py   scanning, automatic runs, schedule, webhook handling
-  db.py        SQLite: movies, log, settings, runs
+  db.py        SQLite: libraries, entries, log, settings, runs
   tmdb.py      TMDB client with robust language handling
   nfo.py       reading and writing NFOs, link formats
   i18n.py      German/English translations

@@ -1,8 +1,10 @@
-"""SQLite storage: movies, log, settings, runs.
+"""SQLite storage: libraries, entries, log, settings, runs.
 
-The movie inventory is kept between runs. An automatic run therefore only
-touches movies that are new, whose NFO changed, or that came back empty last
-time.
+The inventory is kept between runs. An automatic run therefore only touches
+entries that are new, whose NFO changed, or that came back empty last time.
+
+"Entries" are movies or TV shows: one row per NFO file. Which of the two it is
+follows from the library the row belongs to.
 """
 
 import sqlite3
@@ -14,8 +16,25 @@ _local = threading.local()
 _DB_PATH = None
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS libraries (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT NOT NULL,
+    path         TEXT NOT NULL,
+    kind         TEXT NOT NULL DEFAULT 'movie',   -- movie | tv
+    enabled      INTEGER NOT NULL DEFAULT 1,
+    -- Empty means "use the global setting"; every library may override.
+    languages    TEXT DEFAULT '',
+    link_format  TEXT DEFAULT '',
+    keep_format  TEXT DEFAULT '',
+    backup       TEXT DEFAULT '',
+    lockdata     TEXT DEFAULT '',
+    recheck_days TEXT DEFAULT '',
+    created      REAL
+);
+
 CREATE TABLE IF NOT EXISTS movies (
     path           TEXT PRIMARY KEY,
+    library_id     INTEGER,
     folder         TEXT NOT NULL,
     title          TEXT,
     year           TEXT,
@@ -32,9 +51,10 @@ CREATE TABLE IF NOT EXISTS movies (
     last_checked   REAL,            -- TMDB last asked
     last_changed   REAL             -- NFO last written by us
 );
-CREATE INDEX IF NOT EXISTS idx_movies_state  ON movies(state);
-CREATE INDEX IF NOT EXISTS idx_movies_tmdb   ON movies(tmdb_id);
-CREATE INDEX IF NOT EXISTS idx_movies_folder ON movies(folder);
+CREATE INDEX IF NOT EXISTS idx_movies_state   ON movies(state);
+CREATE INDEX IF NOT EXISTS idx_movies_tmdb    ON movies(tmdb_id);
+CREATE INDEX IF NOT EXISTS idx_movies_folder  ON movies(folder);
+CREATE INDEX IF NOT EXISTS idx_movies_library ON movies(library_id);
 
 CREATE TABLE IF NOT EXISTS log (
     id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,6 +88,19 @@ def init(path):
     _DB_PATH = str(path)
     with connect() as con:
         con.executescript(SCHEMA)
+        _migrate(con)
+
+
+def _migrate(con):
+    """Bring an older database up to date.
+
+    Installations from before multiple libraries existed have a movies table
+    without library_id. Adding the column keeps their inventory - re-reading
+    1600 NFOs over SMB is not something to ask for on an update.
+    """
+    columns = {r["name"] for r in con.execute("PRAGMA table_info(movies)")}
+    if "library_id" not in columns:
+        con.execute("ALTER TABLE movies ADD COLUMN library_id INTEGER")
 
 
 def _conn():
@@ -112,22 +145,90 @@ def all_settings():
         return {r["key"]: r["value"] for r in con.execute("SELECT key,value FROM settings")}
 
 
+# ------------------------------------------------------------------ libraries
+LIBRARY_OVERRIDES = ("languages", "link_format", "keep_format", "backup",
+                     "lockdata", "recheck_days")
+KINDS = ("movie", "tv")
+
+
+def add_library(name, path, kind="movie", **overrides):
+    with connect() as con:
+        cur = con.execute(
+            "INSERT INTO libraries(name, path, kind, enabled, created) VALUES(?,?,?,1,?)",
+            (name, str(path).rstrip("/") or "/", kind if kind in KINDS else "movie",
+             time.time()))
+        lib_id = cur.lastrowid
+    if overrides:
+        update_library(lib_id, **overrides)
+    return lib_id
+
+
+def update_library(lib_id, **fields):
+    allowed = ("name", "path", "kind", "enabled") + LIBRARY_OVERRIDES
+    sets, params = [], []
+    for key, value in fields.items():
+        if key not in allowed:
+            continue
+        sets.append("{}=?".format(key))
+        params.append(value)
+    if not sets:
+        return
+    params.append(lib_id)
+    with connect() as con:
+        con.execute("UPDATE libraries SET {} WHERE id=?".format(", ".join(sets)), params)
+
+
+def delete_library(lib_id):
+    """Remove a library and everything it held.
+
+    Only the database rows go - the NFO files themselves are never touched.
+    """
+    with connect() as con:
+        con.execute("DELETE FROM movies WHERE library_id=?", (lib_id,))
+        con.execute("DELETE FROM libraries WHERE id=?", (lib_id,))
+
+
+def get_library(lib_id):
+    if lib_id is None:
+        return None
+    with connect() as con:
+        return con.execute("SELECT * FROM libraries WHERE id=?", (lib_id,)).fetchone()
+
+
+def list_libraries(only_enabled=False):
+    sql = "SELECT * FROM libraries"
+    if only_enabled:
+        sql += " WHERE enabled=1"
+    sql += " ORDER BY name COLLATE NOCASE"
+    with connect() as con:
+        return con.execute(sql).fetchall()
+
+
+def library_counts():
+    """{library_id: number of entries} - for the overview in the settings."""
+    with connect() as con:
+        return {r["library_id"]: r["c"] for r in con.execute(
+            "SELECT library_id, COUNT(*) c FROM movies GROUP BY library_id")}
+
+
 # --------------------------------------------------------------------- movies
-def upsert_movie(path, folder, data, mtime, size):
+def upsert_movie(path, folder, data, mtime, size, library_id=None):
     now = time.time()
     with connect() as con:
         con.execute("""
-            INSERT INTO movies(path, folder, title, year, tmdb_id, imdb_id, trailer,
-                               state, mtime, size, first_seen, last_scanned)
-            VALUES(?,?,?,?,?,?,?, COALESCE((SELECT state FROM movies WHERE path=?), 'pending'),
+            INSERT INTO movies(path, library_id, folder, title, year, tmdb_id, imdb_id,
+                               trailer, state, mtime, size, first_seen, last_scanned)
+            VALUES(?,?,?,?,?,?,?,?,
+                   COALESCE((SELECT state FROM movies WHERE path=?), 'pending'),
                    ?,?,?,?)
             ON CONFLICT(path) DO UPDATE SET
+                library_id=excluded.library_id,
                 folder=excluded.folder, title=excluded.title, year=excluded.year,
                 tmdb_id=excluded.tmdb_id, imdb_id=excluded.imdb_id,
                 trailer=excluded.trailer, mtime=excluded.mtime, size=excluded.size,
                 last_scanned=excluded.last_scanned
-        """, (path, folder, data["title"], data["year"], data["tmdb"], data["imdb"],
-              data["trailer"], path, mtime, size, now, now))
+        """, (path, library_id, folder, data["title"], data["year"], data["tmdb"],
+              data["imdb"], data["trailer"], path, mtime, size, now, now))
 
 
 def mark_result(path, state, message=None, trailer=None, trailer_lang=None, written=False):
@@ -168,75 +269,103 @@ def find_by_folder(folder):
         return con.execute("SELECT * FROM movies WHERE folder=?", (folder,)).fetchall()
 
 
-def known_files():
+def known_files(library_id=None):
     """{path: (mtime, size)} - used to skip unchanged files while scanning."""
+    sql = "SELECT path, mtime, size FROM movies"
+    params = ()
+    if library_id is not None:
+        sql += " WHERE library_id=?"
+        params = (library_id,)
     with connect() as con:
-        return {r["path"]: (r["mtime"], r["size"])
-                for r in con.execute("SELECT path, mtime, size FROM movies")}
+        return {r["path"]: (r["mtime"], r["size"]) for r in con.execute(sql, params)}
 
 
-def delete_missing(paths_present):
-    """Drop movies whose NFO is gone."""
+def delete_missing(paths_present, library_id=None):
+    """Drop entries whose NFO is gone.
+
+    Scoped to one library, so scanning a single folder never deletes rows that
+    belong to another one.
+    """
+    sql = "SELECT path FROM movies"
+    params = ()
+    if library_id is not None:
+        sql += " WHERE library_id=?"
+        params = (library_id,)
     with connect() as con:
-        rows = con.execute("SELECT path FROM movies").fetchall()
+        rows = con.execute(sql, params).fetchall()
         gone = [r["path"] for r in rows if r["path"] not in paths_present]
         for path in gone:
             con.execute("DELETE FROM movies WHERE path=?", (path,))
     return gone
 
 
-def pending_movies(recheck_seconds, overwrite_existing=False, limit=None):
+def pending_movies(recheck_seconds, overwrite_existing=False, limit=None,
+                   library_id=None):
     """What an automatic run picks up.
 
-    - always: new movies and movies without a trailer
-    - again: movies that came back empty, once the last attempt is old enough
-    - never: finished movies, unless 'overwrite_existing' is set
+    - always: new entries and entries without a trailer
+    - again: entries that came back empty, once the last attempt is old enough
+    - never: finished entries, unless 'overwrite_existing' is set
+
+    Scoped to one library when asked, because the recheck interval is a
+    per-library setting.
     """
     cutoff = time.time() - recheck_seconds
+    scope = "" if library_id is None else " AND library_id = :library"
     sql = """
         SELECT * FROM movies
-        WHERE (:overwrite = 1)
+        WHERE ((:overwrite = 1)
            OR state IS NULL OR state IN ('pending', 'error')
            OR (trailer IS NULL OR trailer = '')
            OR (state IN ('no_trailer', 'no_id')
-               AND (last_checked IS NULL OR last_checked < :cutoff))
+               AND (last_checked IS NULL OR last_checked < :cutoff))){}
         ORDER BY (last_checked IS NOT NULL), last_checked ASC, title ASC
-    """
+    """.format(scope)
     if limit:
         sql += " LIMIT {:d}".format(int(limit))
     with connect() as con:
         return con.execute(sql, {"overwrite": 1 if overwrite_existing else 0,
-                                 "cutoff": cutoff}).fetchall()
+                                 "cutoff": cutoff,
+                                 "library": library_id}).fetchall()
 
 
-def list_movies(search=None, state=None, only_missing=False, limit=500, offset=0):
+def list_movies(search=None, state=None, only_missing=False, limit=500, offset=0,
+                library_id=None):
     where, params = [], {}
     if search:
-        where.append("(title LIKE :s OR folder LIKE :s)")
+        where.append("(m.title LIKE :s OR m.folder LIKE :s)")
         params["s"] = "%{}%".format(search)
     if state:
-        where.append("state = :state")
+        where.append("m.state = :state")
         params["state"] = state
     if only_missing:
-        where.append("(trailer IS NULL OR trailer = '')")
+        where.append("(m.trailer IS NULL OR m.trailer = '')")
+    if library_id is not None:
+        where.append("m.library_id = :library")
+        params["library"] = library_id
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     params["limit"] = limit
     params["offset"] = offset
     with connect() as con:
         rows = con.execute(
-            "SELECT * FROM movies {} ORDER BY title COLLATE NOCASE "
+            "SELECT m.*, l.name AS library_name, l.kind AS library_kind "
+            "FROM movies m LEFT JOIN libraries l ON l.id = m.library_id {} "
+            "ORDER BY m.title COLLATE NOCASE "
             "LIMIT :limit OFFSET :offset".format(clause), params).fetchall()
-        total = con.execute("SELECT COUNT(*) c FROM movies {}".format(clause),
-                            params).fetchone()["c"]
+        total = con.execute(
+            "SELECT COUNT(*) c FROM movies m "
+            "LEFT JOIN libraries l ON l.id = m.library_id {}".format(clause),
+            params).fetchone()["c"]
     return rows, total
 
 
-def stats(primary_lang="de"):
+def stats(primary_lang="de", library_id=None):
     """Counts for the dashboard.
 
     The "of which <language>" figure follows the first configured language, so
     it stays meaningful for an English or French library too.
     """
+    scope = "" if library_id is None else " WHERE library_id = :library"
     with connect() as con:
         row = con.execute("""
             SELECT COUNT(*) total,
@@ -246,7 +375,8 @@ def stats(primary_lang="de"):
                    SUM(CASE WHEN state = 'no_trailer' THEN 1 ELSE 0 END) no_trailer,
                    SUM(CASE WHEN state = 'no_id' THEN 1 ELSE 0 END) no_id,
                    SUM(CASE WHEN state = 'error' THEN 1 ELSE 0 END) errors
-            FROM movies""", {"lang": (primary_lang or "de").lower()}).fetchone()
+            FROM movies{}""".format(scope),
+            {"lang": (primary_lang or "de").lower(), "library": library_id}).fetchone()
     out = {k: (row[k] or 0) for k in row.keys()}
     out["primary_lang_code"] = (primary_lang or "de").lower()
     return out
@@ -302,3 +432,24 @@ def finish_run(run_id, scanned=0, checked=0, updated=0, failed=0):
 def last_runs(limit=10):
     with connect() as con:
         return con.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+
+
+def delete_orphans():
+    """Remove entries that belong to no existing library.
+
+    Happens after a library is deleted while a scan was running, or when an
+    older database is migrated and a folder is no longer configured.
+    """
+    with connect() as con:
+        cur = con.execute(
+            "DELETE FROM movies WHERE library_id IS NULL "
+            "OR library_id NOT IN (SELECT id FROM libraries)")
+        return cur.rowcount
+
+
+def assign_all_to_library(lib_id):
+    """Put every entry without a library into the given one (migration)."""
+    with connect() as con:
+        cur = con.execute("UPDATE movies SET library_id=? WHERE library_id IS NULL",
+                          (lib_id,))
+        return cur.rowcount

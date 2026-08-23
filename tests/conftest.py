@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "app"))
 
-_TMP = Path(tempfile.mkdtemp(prefix="trailer-de-tests-"))
+_TMP = Path(tempfile.mkdtemp(prefix="trailer-manager-tests-"))
 os.environ.setdefault("DATA_DIR", str(_TMP / "config"))
 os.environ.setdefault("MOVIES_DIR", str(_TMP / "movies"))
 os.environ.setdefault("SECRET_KEY", "test-secret")
@@ -69,3 +69,22 @@ def client():
     main.app.config["TESTING"] = True
     with main.app.test_client() as c:
         yield c
+
+
+@pytest.fixture
+def library(tmp_path):
+    """A throwaway movie library pointing at tmp_path, removed afterwards."""
+    import db
+
+    lib_id = db.add_library("Test library", str(tmp_path), "movie")
+    yield db.get_library(lib_id)
+    db.delete_library(lib_id)
+
+
+@pytest.fixture
+def tv_library(tmp_path):
+    import db
+
+    lib_id = db.add_library("Test shows", str(tmp_path), "tv")
+    yield db.get_library(lib_id)
+    db.delete_library(lib_id)

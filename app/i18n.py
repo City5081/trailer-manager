@@ -8,8 +8,8 @@ LANGUAGES = {"de": "Deutsch", "en": "English"}
 
 STRINGS = {
     "de": {
-        "app.title": "Trailer DE",
-        "app.subtitle": "Deutsche Trailer fuer Emby aus TMDB",
+        "app.title": "Trailer Manager",
+        "app.subtitle": "Trailer fuer Emby, direkt in die NFO-Dateien",
 
         "nav.movies": "Filme",
         "nav.settings": "Einstellungen",
@@ -85,6 +85,8 @@ STRINGS = {
         "setup.tmdb_hint": "Der v3-API-Key von themoviedb.org, nicht das "
                            "Read-Access-Token. Kostenlos im TMDB-Konto unter "
                            "Einstellungen -> API.",
+        "setup.library_hint": "Weitere Ordner - etwa Anime oder Serien - kommen "
+                              "spaeter unter Einstellungen dazu.",
         "setup.behaviour": "Verhalten",
         "setup.skip_check": "ohne Pruefung des API-Keys speichern",
         "setup.finish": "Einrichtung abschliessen",
@@ -146,6 +148,42 @@ STRINGS = {
         "webhook.token_note": "Das Token steckt in der Adresse. Wer sie kennt, kann "
                               "Durchlaeufe ausloesen - also nicht oeffentlich teilen.",
 
+        "settings.yes": "ein",
+        "settings.no": "aus",
+        "library.title": "Bibliotheken",
+        "library.hint": "Jeder Ordner wird getrennt behandelt und kann eigene "
+                        "Einstellungen bekommen. Was leer bleibt, uebernimmt den "
+                        "globalen Wert weiter oben.",
+        "library.name": "Name",
+        "library.path": "Ordner im Container",
+        "library.kind": "Inhalt",
+        "library.kind_movie": "Filme",
+        "library.kind_tv": "Serien",
+        "library.entries": "Eintraege",
+        "library.enabled": "aktiv",
+        "library.add": "Bibliothek hinzufuegen",
+        "library.added": "Bibliothek angelegt.",
+        "library.deleted": "Bibliothek entfernt. Die NFO-Dateien selbst wurden nicht "
+                           "angeruehrt.",
+        "library.delete_confirm": "Diese Bibliothek und ihre Eintraege aus der "
+                                  "Datenbank entfernen? Die Dateien bleiben unberuehrt.",
+        "library.edit": "Bearbeiten",
+        "library.scan": "Nur diese pruefen",
+        "library.overrides": "Abweichende Einstellungen",
+        "library.inherit": "global uebernehmen",
+        "library.err_fields": "Name und Ordner duerfen nicht leer sein.",
+        "library.err_path": "Diesen Ordner gibt es im Container nicht. Ist er als "
+                            "Volume eingehaengt?",
+        "library.all": "alle Bibliotheken",
+        "library.none": "Noch keine Bibliothek angelegt.",
+        "library.tv_note": "Bei Serien wird je Serie die tvshow.nfo geschrieben, "
+                           "nicht die einzelnen Folgen.",
+        "webhook.last": "Zuletzt empfangen",
+        "webhook.never": "noch nichts empfangen",
+        "webhook.test_hint": "Emby hat bei den Webhooks einen Knopf zum Testen. "
+                             "Danach steht der Empfang hier und im Protokoll - "
+                             "ein Testereignis loest bewusst keinen Durchlauf aus.",
+
         "log.title": "Protokoll",
         "log.time": "Zeit",
         "log.level": "Art",
@@ -170,8 +208,8 @@ STRINGS = {
         "msg.test_ok": "Verbindung und API-Key in Ordnung.",
     },
     "en": {
-        "app.title": "Trailer DE",
-        "app.subtitle": "German trailers for Emby from TMDB",
+        "app.title": "Trailer Manager",
+        "app.subtitle": "Trailers for Emby, straight into your NFO files",
 
         "nav.movies": "Movies",
         "nav.settings": "Settings",
@@ -246,6 +284,8 @@ STRINGS = {
         "setup.tmdb_hint": "The v3 API key from themoviedb.org, not the read access "
                            "token. Free of charge in your TMDB account under "
                            "Settings -> API.",
+        "setup.library_hint": "More folders - anime or TV shows for instance - can "
+                              "be added later under Settings.",
         "setup.behaviour": "Behaviour",
         "setup.skip_check": "save without checking the API key",
         "setup.finish": "Finish setup",
@@ -303,6 +343,41 @@ STRINGS = {
                                     "'Media Available'",
         "webhook.token_note": "The token is part of the address. Anyone who knows it "
                               "can trigger runs, so do not share it publicly.",
+
+        "settings.yes": "on",
+        "settings.no": "off",
+        "library.title": "Libraries",
+        "library.hint": "Every folder is handled separately and can carry its own "
+                        "settings. Anything left empty keeps the global value from "
+                        "above.",
+        "library.name": "Name",
+        "library.path": "Folder inside the container",
+        "library.kind": "Content",
+        "library.kind_movie": "Movies",
+        "library.kind_tv": "TV shows",
+        "library.entries": "entries",
+        "library.enabled": "enabled",
+        "library.add": "Add library",
+        "library.added": "Library created.",
+        "library.deleted": "Library removed. The NFO files themselves were not touched.",
+        "library.delete_confirm": "Remove this library and its entries from the "
+                                  "database? The files stay untouched.",
+        "library.edit": "Edit",
+        "library.scan": "Check this one only",
+        "library.overrides": "Settings that differ",
+        "library.inherit": "use the global value",
+        "library.err_fields": "Name and folder must not be empty.",
+        "library.err_path": "That folder does not exist inside the container. Is it "
+                            "mounted as a volume?",
+        "library.all": "all libraries",
+        "library.none": "No library configured yet.",
+        "library.tv_note": "For TV shows the tvshow.nfo of each series is written, "
+                           "not the individual episodes.",
+        "webhook.last": "Last received",
+        "webhook.never": "nothing received yet",
+        "webhook.test_hint": "Emby has a test button on its webhook settings. After "
+                             "pressing it the arrival shows up here and in the log - "
+                             "a test event deliberately does not start a run.",
 
         "log.title": "Log",
         "log.time": "Time",

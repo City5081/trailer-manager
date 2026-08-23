@@ -1,10 +1,10 @@
 services:
-  trailer-de:
-    image: ghcr.io/city5081/trailer-de:latest
+  trailer-manager:
+    image: ghcr.io/city5081/trailer-manager:latest
     # To build from the source tree instead, comment out the image line above
     # and uncomment the next one:
     # build: .
-    container_name: trailer-de
+    container_name: trailer-manager
     restart: unless-stopped
     ports:
       - "${HOST_PORT:-8099}:8081"
@@ -17,6 +17,10 @@ services:
       - "${CONFIG_PATH:-./config}:/config"
       # Must be writable, otherwise the NFOs cannot be changed.
       - "${MOVIES_PATH:-/mnt/user/Movies}:/movies"
+      # Add a volume per extra library and enter the container path
+      # (/anime, /shows) under Settings -> Libraries:
+      # - "/mnt/user/Anime:/anime"
+      # - "/mnt/user/Shows:/shows"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8081/health"]
       interval: 60s

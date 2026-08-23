@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+{% set inherit_choices = [('', 'library.inherit'), ('1', 'settings.yes'), ('0', 'settings.no')] %}
+<form method="post" class="card setup">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <h1>{{ lib['name'] }}</h1>
+  <p class="hint">{{ count }} {{ t('library.entries') }}</p>
+
+  <label>{{ t('library.name') }}<input name="name" value="{{ lib['name'] }}" required></label>
+  <label>{{ t('library.path') }}<input class="mono" name="path" value="{{ lib['path'] }}" required></label>
+  <label>{{ t('library.kind') }}
+    <select name="kind">
+      {% for k in kinds %}
+        <option value="{{ k }}" {% if lib['kind'] == k %}selected{% endif %}>{{ t('library.kind_' + k) }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% if lib['kind'] == 'tv' %}<p class="hint">{{ t('library.tv_note') }}</p>{% endif %}
+  <label class="inline"><input type="checkbox" name="enabled" {% if lib['enabled'] %}checked{% endif %}> {{ t('library.enabled') }}</label>
+
+  <h2>{{ t('library.overrides') }}</h2>
+  <p class="hint">{{ t('library.hint') }}</p>
+
+  <label>{{ t('settings.languages') }}
+    <input name="languages" value="{{ lib['languages'] or '' }}" placeholder="{{ t('library.inherit') }}">
+  </label>
+  <label>{{ t('settings.link_format') }}
+    <select name="link_format">
+      <option value="">{{ t('library.inherit') }}</option>
+      {% for key, entry in link_formats.items() %}
+        <option value="{{ key }}" {% if lib['link_format'] == key %}selected{% endif %}>{{ entry[0] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% for field, label in [('keep_format', 'settings.keep_format'), ('backup', 'settings.backup'), ('lockdata', 'settings.lockdata')] %}
+    <label>{{ t(label) }}
+      <select name="{{ field }}">
+        {% for value, text in inherit_choices %}
+          <option value="{{ value }}" {% if (lib[field] or '') == value %}selected{% endif %}>{{ t(text) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  {% endfor %}
+  <label>{{ t('settings.recheck') }}
+    <input name="recheck_days" value="{{ lib['recheck_days'] or '' }}" placeholder="{{ t('library.inherit') }}" size="8">
+  </label>
+
+  <div class="toolbar">
+    <button class="primary" type="submit">{{ t('action.save') }}</button>
+    <a class="btn" href="{{ url_for('settings_page') }}">{{ t('action.reset') }}</a>
+  </div>
+</form>
+
+<form method="post" action="{{ url_for('library_delete', lib_id=lib['id']) }}" class="card"
+      onsubmit="return confirm('{{ t('library.delete_confirm') }}');">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <button class="danger" type="submit">{{ t('action.remove') }}</button>
+</form>
+{% endblock %}

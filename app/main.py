@@ -1,8 +1,9 @@
-"""Trailer DE - web interface.
+"""Trailer Manager - web interface.
 
-Writes German TMDB trailers into the NFO files of an Emby movie library: on a
-schedule, at the push of a button, or right away when Emby or Jellyseerr
-reports a new movie.
+Writes TMDB trailers in the language you want into the NFO files of an Emby
+library: on a schedule, at the push of a button, or right away when Emby or
+Jellyseerr reports a new item. Any number of libraries, each holding movies or
+TV shows.
 """
 
 import functools
@@ -278,7 +279,11 @@ def setup():
         return redirect(url_for("login", next=request.path))
 
     needs_account = not config.credentials_from_env()
+    first = (db.list_libraries() or [None])[0]
     values = {
+        "library_name": (first["name"] if first else "Movies"),
+        "library_path": (first["path"] if first else str(config.MOVIES_DIR)),
+        "library_kind": (first["kind"] if first else "movie"),
         "web_username": current_username(),
         "tmdb_api_key": setting("tmdb_api_key", ""),
         "languages": setting("languages", "de"),
@@ -294,7 +299,8 @@ def setup():
 
     if request.method == "POST":
         for key in ("web_username", "tmdb_api_key", "languages", "link_format",
-                    "scan_interval_hours", "recheck_days", "ui_language"):
+                    "scan_interval_hours", "recheck_days", "ui_language",
+                    "library_name", "library_path", "library_kind"):
             values[key] = request.form.get(key, "").strip()
         for key in ("keep_format", "backup", "scan_on_start"):
             values[key] = bool(request.form.get(key))
@@ -310,6 +316,11 @@ def setup():
                 errors.append(t("setup.err_short"))
             elif password != repeat:
                 errors.append(t("setup.err_repeat"))
+
+        if not values["library_name"] or not values["library_path"]:
+            errors.append(t("library.err_fields"))
+        elif not Path(values["library_path"]).is_dir():
+            errors.append(t("library.err_path"))
 
         if not values["tmdb_api_key"]:
             errors.append(t("setup.err_key"))
@@ -330,6 +341,12 @@ def setup():
                 db.set_setting(key, values[key])
             for key in ("keep_format", "backup", "scan_on_start"):
                 db.set_setting(key, "1" if values[key] else "0")
+            kind = values["library_kind"] if values["library_kind"] in db.KINDS else "movie"
+            if first:
+                db.update_library(first["id"], name=values["library_name"],
+                                  path=values["library_path"], kind=kind)
+            else:
+                db.add_library(values["library_name"], values["library_path"], kind)
             db.set_setting("setup_done", "1")
             session["lang"] = values["ui_language"]
             db.log("info", "Setup completed", "setup")
@@ -361,19 +378,30 @@ def _positive_int(value, default):
         return default
 
 
+def _optional_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 @app.route("/")
 @login_required
 def index():
     search = request.args.get("q", "").strip()
     state = request.args.get("state", "").strip()
     only_missing = request.args.get("missing") == "1"
+    library_id = _optional_int(request.args.get("library"))
     page = _positive_int(request.args.get("page"), 1)
     per_page = 100
     rows, total = db.list_movies(search or None, state or None, only_missing,
-                                 limit=per_page, offset=(page - 1) * per_page)
+                                 limit=per_page, offset=(page - 1) * per_page,
+                                 library_id=library_id)
     return render_template("index.html", movies=rows, total=total, page=page,
                            pages=max(1, (total + per_page - 1) // per_page),
-                           stats=db.stats(primary_language()), search=search, state=state,
+                           stats=db.stats(primary_language(), library_id),
+                           libraries=db.list_libraries(), library_id=library_id,
+                           search=search, state=state,
                            only_missing=only_missing, video_id=nfo.video_id_from)
 
 
@@ -509,7 +537,87 @@ def settings_page():
     if config.WEBHOOK_TOKEN:
         webhook_url += "?token=" + quote(config.WEBHOOK_TOKEN)
     return render_template("settings.html", values=values, webhook_url=webhook_url,
-                           runs=db.last_runs(5))
+                           runs=db.last_runs(5), libraries=db.list_libraries(),
+                           counts=db.library_counts(), kinds=db.KINDS,
+                           last_webhook=db.get_setting("last_webhook") or "")
+
+
+# --------------------------------------------------------------------- libraries
+def _library_form():
+    """The fields shared by adding and editing a library."""
+    overrides = {}
+    for key in db.LIBRARY_OVERRIDES:
+        overrides[key] = request.form.get(key, "").strip()
+    # Checkboxes need three states here: inherit, on, off. A select box sends
+    # "", "1" or "0", so an empty value keeps the global setting.
+    return overrides
+
+
+@app.route("/library/add", methods=["POST"])
+@login_required
+def library_add():
+    name = request.form.get("name", "").strip()
+    path = request.form.get("path", "").strip()
+    kind = request.form.get("kind", "movie")
+    if not name or not path:
+        flash(t("library.err_fields"), "error")
+    elif not Path(path).is_dir():
+        flash(t("library.err_path"), "error")
+    else:
+        lib_id = db.add_library(name, path, kind, **_library_form())
+        db.log("info", "Library '{}' added ({}, {})".format(name, kind, path), "settings")
+        flash(t("library.added"), "ok")
+        return redirect(url_for("library_edit", lib_id=lib_id))
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/library/<int:lib_id>", methods=["GET", "POST"])
+@login_required
+def library_edit(lib_id):
+    lib = db.get_library(lib_id)
+    if not lib:
+        abort(404)
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        path = request.form.get("path", "").strip()
+        if not name or not path:
+            flash(t("library.err_fields"), "error")
+        elif not Path(path).is_dir():
+            flash(t("library.err_path"), "error")
+        else:
+            db.update_library(lib_id, name=name, path=path,
+                              kind=request.form.get("kind", "movie"),
+                              enabled=1 if request.form.get("enabled") else 0,
+                              **_library_form())
+            db.log("info", "Library '{}' changed".format(name), "settings")
+            flash(t("settings.saved"), "ok")
+            return redirect(url_for("settings_page"))
+        lib = db.get_library(lib_id)
+    return render_template("library.html", lib=lib, kinds=db.KINDS,
+                           count=db.library_counts().get(lib_id, 0))
+
+
+@app.route("/library/<int:lib_id>/delete", methods=["POST"])
+@login_required
+def library_delete(lib_id):
+    lib = db.get_library(lib_id)
+    if not lib:
+        abort(404)
+    db.delete_library(lib_id)
+    db.log("warn", "Library '{}' removed from the database".format(lib["name"]), "settings")
+    flash(t("library.deleted"), "ok")
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/library/<int:lib_id>/scan", methods=["POST"])
+@login_required
+def library_scan(lib_id):
+    lib = db.get_library(lib_id)
+    if not lib:
+        abort(404)
+    started = SCANNER.run_async(trigger="manual", library_id=lib_id)
+    flash(t("msg.started") if started else t("msg.already"), "ok" if started else "error")
+    return redirect(_back())
 
 
 @app.route("/settings/password", methods=["POST"])
@@ -576,6 +684,18 @@ def webhook():
         payload = request.form.to_dict() or {}
     event = (payload.get("Event") or payload.get("NotificationType")
              or payload.get("notification_type") or "")
+    title = _dig(payload, "Item", "Name") or payload.get("Name") or ""
+
+    # Log every accepted request, not just the ones that lead to work. A test
+    # webhook from Emby carries an event we ignore, and without this line there
+    # would be nothing at all to show that it arrived.
+    note = "Webhook received from {}: event '{}'{}".format(
+        request.remote_addr, event or "(none)",
+        " - {}".format(title) if title else "")
+    db.log("info", note, "webhook")
+    db.set_setting("last_webhook", "{} | {}".format(
+        time.strftime("%Y-%m-%d %H:%M:%S"), note))
+
     if event and not any(word in str(event).lower()
                          for word in ("add", "new", "created", "available", "library")):
         return jsonify({"ignored": event})
@@ -584,12 +704,38 @@ def webhook():
     return jsonify({"accepted": True, "event": event})
 
 
+def _dig(data, *keys):
+    cur = data
+    for key in keys:
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(key)
+    return cur
+
+
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "busy": SCANNER.busy if SCANNER else False})
 
 
 # ----------------------------------------------------------------------- start
+def ensure_default_library():
+    """Give an installation without libraries the one from MOVIES_DIR.
+
+    That covers both a fresh start and an upgrade from the single folder
+    version, whose entries are adopted instead of being read again - rescanning
+    1600 NFOs over SMB is not something to ask for on an update.
+    """
+    if db.list_libraries():
+        return None
+    lib_id = db.add_library("Movies", str(config.MOVIES_DIR), "movie")
+    adopted = db.assign_all_to_library(lib_id)
+    if adopted:
+        db.log("info", "{} existing entries moved into the library '{}'"
+               .format(adopted, "Movies"), "app")
+    return lib_id
+
+
 def create_app():
     """Build the application. Calling this twice (Gunicorn reload) is harmless."""
     global SCANNER
@@ -612,9 +758,11 @@ def create_app():
         db.log("warn", "The webhook token could not be stored under /config - it only "
                        "lasts until the next restart. Check the permissions.", "app")
 
-    SCANNER = scanner_mod.Scanner(config.MOVIES_DIR, setting)
+    ensure_default_library()
+    SCANNER = scanner_mod.Scanner(setting)
     SCANNER.start_scheduler()
-    db.log("info", "Trailer DE started (library: {})".format(config.MOVIES_DIR), "app")
+    db.log("info", "Trailer Manager started ({} libraries)"
+           .format(len(db.list_libraries())), "app")
     return app
 
 

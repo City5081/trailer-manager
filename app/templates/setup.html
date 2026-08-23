@@ -24,6 +24,21 @@
     <p class="hint">{{ t('setup.account_env') }}</p>
   {% endif %}
 
+  <h2>{{ t('library.title') }}</h2>
+  <label>{{ t('library.name') }}
+    <input name="library_name" value="{{ values.library_name }}" required>
+  </label>
+  <label>{{ t('library.path') }}
+    <input class="mono" name="library_path" value="{{ values.library_path }}" required>
+  </label>
+  <label>{{ t('library.kind') }}
+    <select name="library_kind">
+      <option value="movie" {% if values.library_kind == 'movie' %}selected{% endif %}>{{ t('library.kind_movie') }}</option>
+      <option value="tv" {% if values.library_kind == 'tv' %}selected{% endif %}>{{ t('library.kind_tv') }}</option>
+    </select>
+  </label>
+  <p class="hint">{{ t('setup.library_hint') }}</p>
+
   <h2>{{ t('settings.tmdb') }}</h2>
   <label>{{ t('settings.api_key') }}
     <input name="tmdb_api_key" value="{{ values.tmdb_api_key }}" autocomplete="off" required>

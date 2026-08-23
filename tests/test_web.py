@@ -103,3 +103,21 @@ def test_the_settings_page_shows_the_webhook_instructions(client):
     page = client.get("/settings").get_data(as_text=True)
     assert "application/json" in page
     assert config.WEBHOOK_TOKEN in page
+
+
+def test_a_test_webhook_shows_up_in_the_log(client):
+    """Emby's test button sends an event we ignore. It still has to be visible,
+    otherwise there is no way to tell whether the webhook arrives at all."""
+    import db
+
+    sign_in(client)
+    response = client.post("/webhook?token=" + config.WEBHOOK_TOKEN,
+                           json={"Event": "playback.start", "Item": {"Name": "Probe"}})
+    assert response.get_json() == {"ignored": "playback.start"}
+
+    messages = [r["message"] for r in db.recent_log(20) if r["source"] == "webhook"]
+    assert any("Probe" in m and "playback.start" in m for m in messages)
+    assert "playback.start" in (db.get_setting("last_webhook") or "")
+
+    page = client.get("/settings").get_data(as_text=True)
+    assert "playback.start" in page

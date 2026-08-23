@@ -27,6 +27,8 @@ def _int(name, default):
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/config"))
 MOVIES_DIR = Path(os.environ.get("MOVIES_DIR", "/movies"))
+# The file name predates the rename to Trailer Manager and stays as it is:
+# changing it would leave an existing installation with an empty database.
 DB_PATH = DATA_DIR / "trailerde.sqlite3"
 
 # Web interface credentials. Leaving these unset is the normal case: the setup

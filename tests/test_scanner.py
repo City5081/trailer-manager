@@ -23,25 +23,24 @@ def german_trailer(*_a, **_k):
              "official": True, "site": "YouTube", "size": 1080}]
 
 
-def test_scan_detects_new_and_removed_movies(movie_nfo):
-    library = movie_nfo.parent.parent
-    s = scanner_mod.Scanner(library, settings())
+def test_scan_detects_new_and_removed_movies(movie_nfo, library):
+    s = scanner_mod.Scanner(settings())
 
-    result = s.scan_library(workers=2)
+    result = s.scan_library(library, workers=2)
     assert result["files"] == 1 and result["changed"] == 1
     assert db.get_movie(str(movie_nfo))["title"] == "Test Movie"
 
     # Unchanged files are not parsed again on the second pass.
-    assert s.scan_library(workers=2)["changed"] == 0
+    assert s.scan_library(library, workers=2)["changed"] == 0
 
     movie_nfo.unlink()
-    assert s.scan_library(workers=2)["removed"] == 1
+    assert s.scan_library(library, workers=2)["removed"] == 1
     assert db.get_movie(str(movie_nfo)) is None
 
 
-def test_writes_the_german_trailer(movie_nfo, monkeypatch):
-    s = scanner_mod.Scanner(movie_nfo.parent.parent, settings())
-    s.scan_library(workers=2)
+def test_writes_the_german_trailer(movie_nfo, library, monkeypatch):
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
 
     monkeypatch.setattr(tmdb, "fetch_videos", german_trailer)
     status, _ = s.process_movie(db.get_movie(str(movie_nfo)))
@@ -53,23 +52,23 @@ def test_writes_the_german_trailer(movie_nfo, monkeypatch):
     assert row["state"] == "ok" and row["trailer_lang"] == "de"
 
 
-def test_nothing_is_written_without_a_hit(movie_nfo, monkeypatch):
-    s = scanner_mod.Scanner(movie_nfo.parent.parent, settings())
-    s.scan_library(workers=2)
+def test_nothing_is_written_without_a_hit(movie_nfo, library, monkeypatch):
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
     monkeypatch.setattr(tmdb, "fetch_videos", lambda *a, **k: [])
     status, _ = s.process_movie(db.get_movie(str(movie_nfo)))
     assert status == "no_trailer"
     assert nfo.parse_nfo(movie_nfo)["trailer"] == ""
 
 
-def test_language_of_an_existing_trailer_is_recorded(movie_nfo, monkeypatch):
+def test_language_of_an_existing_trailer_is_recorded(movie_nfo, library, monkeypatch):
     """Links that Emby wrote have no language attached. Without this the whole
     language column stays empty for an existing library."""
     english = nfo.format_link("bbbbbbbbbbb", "emby")
     nfo.write_trailer(movie_nfo, english, backup=False)
 
-    s = scanner_mod.Scanner(movie_nfo.parent.parent, settings())
-    s.scan_library(workers=2)
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
     assert db.get_movie(str(movie_nfo))["trailer_lang"] is None
 
     monkeypatch.setattr(tmdb, "fetch_videos", lambda *a, **k: [
@@ -84,32 +83,32 @@ def test_language_of_an_existing_trailer_is_recorded(movie_nfo, monkeypatch):
     assert nfo.parse_nfo(movie_nfo)["trailer"] == english
 
 
-def test_movie_without_ids_is_reported(tmp_path):
+def test_movie_without_ids_is_reported(tmp_path, library):
     folder = tmp_path / "No IDs (2020)"
     folder.mkdir()
     path = folder / "movie.nfo"
     path.write_text("<movie><title>No IDs</title></movie>", encoding="utf-8")
 
-    s = scanner_mod.Scanner(tmp_path, settings())
-    s.scan_library(workers=2)
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
     status, _ = s.process_movie(db.get_movie(str(path)))
     assert status == "no_id"
 
 
-def test_existing_link_format_is_kept(movie_nfo, monkeypatch):
+def test_existing_link_format_is_kept(movie_nfo, library, monkeypatch):
     """If the NFO already holds a plain YouTube URL, it must not be switched to
     plugin:// - otherwise every run rewrites every file."""
     nfo.write_trailer(movie_nfo, nfo.format_link("aaaaaaaaaaa", "url"), backup=False)
-    s = scanner_mod.Scanner(movie_nfo.parent.parent, settings())
-    s.scan_library(workers=2)
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
     monkeypatch.setattr(tmdb, "fetch_videos", german_trailer)
     s.process_movie(db.get_movie(str(movie_nfo)))
     assert nfo.parse_nfo(movie_nfo)["trailer"].startswith("https://www.youtube.com/")
 
 
-def test_only_one_run_at_a_time(tmp_path):
+def test_only_one_run_at_a_time():
     """Two quick clicks must not start two runs."""
-    s = scanner_mod.Scanner(tmp_path, settings())
+    s = scanner_mod.Scanner(settings())
     assert s._claim() is True
     assert s._claim() is False
 

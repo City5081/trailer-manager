@@ -1,4 +1,9 @@
-"""Reading and writing NFO files (Emby/Kodi format)."""
+"""Reading and writing NFO files (Emby/Kodi format).
+
+Two shapes matter: a movie NFO with a <movie> root, one file per movie folder,
+and a series NFO named tvshow.nfo with a <tvshow> root, one file per series
+folder. Episode NFOs (<episodedetails>) carry no trailer and are skipped.
+"""
 
 import os
 import re
@@ -19,6 +24,12 @@ FORMAT_LABELS = {label: keyname for keyname, (label, _fmt) in LINK_FORMATS.items
 DEFAULT_FORMAT = "emby"
 YT_URL_FMT = "https://www.youtube.com/watch?v={}"
 YT_ID_RE = re.compile(r"[A-Za-z0-9_-]{11}")
+
+
+# Root elements we know how to handle, mapped to the kind of library they
+# belong to. Everything else - episodes, seasons, artists - is ignored.
+ROOT_KINDS = {"movie": "movie", "tvshow": "tv"}
+TV_NFO_NAME = "tvshow.nfo"
 
 
 def read_ids(root):
@@ -110,7 +121,7 @@ def check_write_access(nfo_path):
     lines.append("NFO writable:    {}".format("yes" if os.access(nfo, os.W_OK) else "NO"))
     lines.append("Folder writable: {}".format("yes" if os.access(folder, os.W_OK) else "NO"))
 
-    probe = folder / ".trailer-de-write-test"
+    probe = folder / ".trailer-manager-write-test"
     try:
         probe.write_text("test", encoding="utf-8")
         probe.unlink()
@@ -264,27 +275,45 @@ def detect_format(link):
     return None
 
 
-def parse_nfo(path):
-    """Read an NFO -> dict or None."""
+def parse_nfo(path, kind=None):
+    """Read an NFO -> dict or None.
+
+    With `kind` given ("movie" or "tv") a file of the other shape is rejected,
+    so a stray movie.nfo inside a series folder cannot end up in the wrong
+    library.
+    """
     try:
         root = ET.parse(path).getroot()
     except (ET.ParseError, OSError):
         return None
-    if root.tag != "movie":
+    found_kind = ROOT_KINDS.get(root.tag)
+    if found_kind is None or (kind is not None and found_kind != kind):
         return None
     tmdb_id, imdb_id = read_ids(root)
+    year = (root.findtext("year") or "").strip()
+    if not year:
+        # Series usually carry a full premiered date instead of a plain year.
+        premiered = (root.findtext("premiered") or "").strip()
+        year = premiered[:4] if premiered[:4].isdigit() else ""
     return {
         "title": (root.findtext("title") or Path(path).parent.name).strip(),
-        "year": (root.findtext("year") or "").strip(),
+        "year": year,
         "tmdb": tmdb_id,
         "imdb": imdb_id,
         "trailer": (root.findtext("trailer") or "").strip(),
+        "kind": found_kind,
     }
 
 
-def walk_nfo_files(root_path, stop=None):
+def walk_nfo_files(root_path, stop=None, only_names=None):
     """Collect NFO files. os.scandir is much faster than Path.rglob over SMB,
-    because type and size already come with the directory listing."""
+    because type and size already come with the directory listing.
+
+    `only_names` narrows the search to specific file names. For series that is
+    tvshow.nfo: a show with ten seasons holds hundreds of episode NFOs, and
+    opening every one of them just to discard it would dominate the scan.
+    """
+    wanted = {n.lower() for n in only_names} if only_names else None
     found = []
     stack = [str(root_path)]
     while stack:
@@ -298,7 +327,8 @@ def walk_nfo_files(root_path, stop=None):
                         if entry.is_dir(follow_symlinks=False):
                             if not entry.name.startswith("."):
                                 stack.append(entry.path)
-                        elif entry.name.lower().endswith(".nfo"):
+                        elif (entry.name.lower() in wanted if wanted
+                              else entry.name.lower().endswith(".nfo")):
                             try:
                                 st = entry.stat()
                                 found.append((entry.path, st.st_mtime, st.st_size))

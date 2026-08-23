@@ -6,6 +6,10 @@ import config
 import db
 import tmdb
 
+# The wizard checks that the library folder really exists inside the container.
+LIB_PATH = config.MOVIES_DIR
+LIB_PATH.mkdir(parents=True, exist_ok=True)
+
 
 def token_from(html):
     m = re.search(r'name="csrf" value="([^"]+)"', html)
@@ -60,6 +64,9 @@ def test_the_wizard_stores_the_basics(client, monkeypatch):
         page = client.get("/setup").get_data(as_text=True)
         response = client.post("/setup", data={
             "csrf": token_from(page),
+            "library_name": "Movies",
+            "library_path": str(LIB_PATH),
+            "library_kind": "movie",
             "tmdb_api_key": "a-real-key",
             "languages": "de,en",
             "link_format": "kodi",
@@ -91,6 +98,9 @@ def test_a_bad_api_key_does_not_finish_the_setup(client, monkeypatch):
         page = client.get("/setup").get_data(as_text=True)
         response = client.post("/setup", data={
             "csrf": token_from(page),
+            "library_name": "Movies",
+            "library_path": str(LIB_PATH),
+            "library_kind": "movie",
             "tmdb_api_key": "nonsense",
             "languages": "de",
             "link_format": "emby",
@@ -117,6 +127,9 @@ def test_the_key_check_can_be_skipped(client, monkeypatch):
         page = client.get("/setup").get_data(as_text=True)
         response = client.post("/setup", data={
             "csrf": token_from(page),
+            "library_name": "Movies",
+            "library_path": str(LIB_PATH),
+            "library_kind": "movie",
             "tmdb_api_key": "offline-key",
             "languages": "de",
             "link_format": "emby",
@@ -154,6 +167,8 @@ def test_without_environment_credentials_the_wizard_asks_for_an_account(client, 
         response = client.post("/setup", data={
             "csrf": token_from(page), "web_username": "hannes",
             "password": "short", "password_repeat": "short",
+            "library_name": "Movies", "library_path": str(LIB_PATH),
+            "library_kind": "movie",
             "tmdb_api_key": "key", "languages": "de", "link_format": "emby",
             "scan_interval_hours": "12", "recheck_days": "30", "ui_language": "de",
         })
@@ -163,6 +178,8 @@ def test_without_environment_credentials_the_wizard_asks_for_an_account(client, 
         response = client.post("/setup", data={
             "csrf": token_from(page), "web_username": "hannes",
             "password": "long-enough-password", "password_repeat": "long-enough-password",
+            "library_name": "Movies", "library_path": str(LIB_PATH),
+            "library_kind": "movie",
             "tmdb_api_key": "key", "languages": "de", "link_format": "emby",
             "scan_interval_hours": "12", "recheck_days": "30", "ui_language": "de",
         })

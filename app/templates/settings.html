@@ -43,10 +43,57 @@
 </form>
 
 <div class="card">
+  <h2>{{ t('library.title') }}</h2>
+  <p class="hint">{{ t('library.hint') }}</p>
+  <table>
+    <thead><tr>
+      <th>{{ t('library.name') }}</th><th>{{ t('library.kind') }}</th>
+      <th>{{ t('library.path') }}</th><th>{{ t('library.entries') }}</th>
+      <th>{{ t('table.actions') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for lib in libraries %}
+      <tr {% if not lib['enabled'] %}class="muted"{% endif %}>
+        <td><a href="{{ url_for('library_edit', lib_id=lib['id']) }}">{{ lib['name'] }}</a></td>
+        <td>{{ t('library.kind_' + lib['kind']) }}</td>
+        <td class="mono small break">{{ lib['path'] }}</td>
+        <td>{{ counts.get(lib['id'], 0) }}</td>
+        <td class="actions">
+          <a class="btn small" href="{{ url_for('library_edit', lib_id=lib['id']) }}">{{ t('library.edit') }}</a>
+          <form method="post" action="{{ url_for('library_scan', lib_id=lib['id']) }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button class="small" {% if busy %}disabled{% endif %}>{{ t('library.scan') }}</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">{{ t('library.none') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" action="{{ url_for('library_add') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <h2>{{ t('library.add') }}</h2>
+    <div class="filters">
+      <input name="name" placeholder="{{ t('library.name') }}" required>
+      <input class="mono" name="path" placeholder="/anime" required>
+      <select name="kind">
+        {% for k in kinds %}<option value="{{ k }}">{{ t('library.kind_' + k) }}</option>{% endfor %}
+      </select>
+      <button class="primary" type="submit">{{ t('library.add') }}</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
   <h2>{{ t('settings.webhook') }}</h2>
   <p class="hint">{{ t('webhook.hint') }}</p>
   <p class="mono break url">{{ webhook_url }}</p>
   <p class="hint">{{ t('webhook.token_note') }}</p>
+  <p class="hint"><b>{{ t('webhook.last') }}:</b>
+     <span class="mono">{{ last_webhook or t('webhook.never') }}</span></p>
+  <p class="hint">{{ t('webhook.test_hint') }}</p>
 
   <h2>{{ t('webhook.emby') }}</h2>
   <ol class="steps">

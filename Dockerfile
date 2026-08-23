@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-LABEL org.opencontainers.image.title="Trailer DE" \
+LABEL org.opencontainers.image.title="Trailer Manager" \
       org.opencontainers.image.description="Writes German TMDB trailers into the NFO files of an Emby library" \
       org.opencontainers.image.licenses="MIT"
 

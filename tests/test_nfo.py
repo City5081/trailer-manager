@@ -43,12 +43,48 @@ def test_parse_nfo_reads_ids(movie_nfo):
 
 
 def test_parse_nfo_ignores_foreign_files(tmp_path):
-    other = tmp_path / "show.nfo"
-    other.write_text("<tvshow><title>No</title></tvshow>", encoding="utf-8")
-    assert nfo.parse_nfo(other) is None
+    episode = tmp_path / "S01E01.nfo"
+    episode.write_text("<episodedetails><title>Pilot</title></episodedetails>",
+                       encoding="utf-8")
+    assert nfo.parse_nfo(episode) is None
     broken = tmp_path / "broken.nfo"
     broken.write_text("<movie><title>", encoding="utf-8")
     assert nfo.parse_nfo(broken) is None
+
+
+def test_parse_nfo_reads_a_series(tmp_path):
+    show = tmp_path / "tvshow.nfo"
+    show.write_text('<tvshow><title>Test Show</title>'
+                    '<premiered>2015-04-13</premiered>'
+                    '<uniqueid type="tmdb">1396</uniqueid></tvshow>',
+                    encoding="utf-8")
+    data = nfo.parse_nfo(show)
+    assert data["kind"] == "tv"
+    assert data["title"] == "Test Show"
+    assert data["year"] == "2015"          # taken from <premiered>
+    assert data["tmdb"] == "1396"
+
+
+def test_a_library_kind_rejects_the_other_shape(tmp_path, movie_nfo):
+    """A stray movie.nfo in a series folder must not land in the wrong library."""
+    show = tmp_path / "tvshow.nfo"
+    show.write_text("<tvshow><title>Show</title></tvshow>", encoding="utf-8")
+    assert nfo.parse_nfo(show, kind="tv") is not None
+    assert nfo.parse_nfo(show, kind="movie") is None
+    assert nfo.parse_nfo(movie_nfo, kind="movie") is not None
+    assert nfo.parse_nfo(movie_nfo, kind="tv") is None
+
+
+def test_series_scan_only_opens_tvshow_files(tmp_path):
+    show = tmp_path / "Test Show" / "Season 01"
+    show.mkdir(parents=True)
+    (tmp_path / "Test Show" / "tvshow.nfo").write_text("<tvshow/>", encoding="utf-8")
+    for n in range(5):
+        (show / "S01E0{}.nfo".format(n)).write_text("<episodedetails/>", encoding="utf-8")
+
+    found = [p for p, _m, _s in nfo.walk_nfo_files(tmp_path, only_names={"tvshow.nfo"})]
+    assert len(found) == 1 and found[0].endswith("tvshow.nfo")
+    assert len(nfo.walk_nfo_files(tmp_path)) == 6
 
 
 def test_write_change_and_remove_trailer(movie_nfo):
