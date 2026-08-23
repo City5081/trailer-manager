@@ -33,7 +33,7 @@ Emby diesen.
 ```bash
 git clone https://github.com/City5081/trailer-de.git
 cd trailer-de
-cp .env.example .env          # ausfüllen: TMDB_API_KEY, WEB_PASSWORD, WEBHOOK_TOKEN, MOVIES_PATH
+cp .env.example .env          # ausfüllen: TMDB_API_KEY, WEB_PASSWORD, MOVIES_PATH
 docker compose up -d --build
 ```
 
@@ -50,11 +50,8 @@ Der Image-Name ist durchgehend klein geschrieben: Docker lässt in Image-Namen
 keine Großbuchstaben zu, auch wenn der GitHub-Benutzername welche hat. Die
 Action schreibt aus demselben Grund nach `city5081`.
 
-Zufallswerte für `SECRET_KEY` und `WEBHOOK_TOKEN`:
-
-```bash
-openssl rand -hex 32
-```
+`SECRET_KEY` und `WEBHOOK_TOKEN` dürfen leer bleiben – beide werden beim ersten
+Start erzeugt und unter `/config` abgelegt, sodass sie Neustarts überleben.
 
 ### Unraid
 
@@ -70,7 +67,7 @@ Alternativ über *Docker → Add Container*. Wichtig ist in beiden Fällen:
 |---|---|
 | `/movies` | Freigabe mit den Filmen, **Read/Write** |
 | `/config` | z. B. `/mnt/user/appdata/trailer-de` |
-| Port | `8099` → `8080` |
+| Port | `8099` → `8081` |
 | `PUID` / `PGID` | `99` / `100` |
 
 Der Container startet als root, stellt den Benutzer `app` auf `PUID`/`PGID` um
@@ -92,7 +89,7 @@ Vorlage: [`.env.example`](.env.example).
 |---|---|
 | `WEB_USERNAME`, `WEB_PASSWORD` | Zugang zur Oberfläche |
 | `WEB_PASSWORD_HASH` | statt Klartext; erzeugen mit `tools/hash_password.py` |
-| `SECRET_KEY` | Sitzungsschlüssel (sonst automatisch unter `/config`) |
+| `SECRET_KEY` | Sitzungsschlüssel; leer = wird beim ersten Start erzeugt |
 | `COOKIE_SECURE` | `true` hinter einem Reverse Proxy mit TLS |
 | `SESSION_DAYS` | wie lange eine Anmeldung gilt (Voreinstellung 30) |
 | `TMDB_API_KEY` | **v3-API-Key**, nicht das Read-Access-Token |
@@ -104,16 +101,19 @@ Vorlage: [`.env.example`](.env.example).
 | `SCAN_ON_START` | Lauf beim Start des Containers |
 | `RECHECK_DAYS` | erfolglose Filme nach so vielen Tagen erneut prüfen |
 | `UI_LANGUAGE` | `de` oder `en` |
-| `WEBHOOK_TOKEN` | Token für die Webhook-Adresse; **ohne Token bleibt der Webhook zu** |
+| `WEBHOOK_TOKEN` | Token für die Webhook-Adresse; leer = wird beim ersten Start erzeugt |
 | `AUTH_DISABLED` | `true` nur, wenn eine Gegenstelle die Anmeldung übernimmt |
 | `PUID` / `PGID` | Benutzer- und Gruppenkennung für geschriebene Dateien |
 
 Host-seitig steuern `HOST_PORT`, `MOVIES_PATH` und `CONFIG_PATH` in der `.env`,
-was die `docker-compose.yml` einhängt.
+was die `docker-compose.yml` einhängt. Im Container lauscht die Anwendung auf
+`8081`; `PORT` ändert das, falls nötig.
 
 ## Webhook einrichten
 
-Die fertige Adresse steht in der Oberfläche unter *Einstellungen → Webhook*:
+Du musst nichts vorbereiten: Fehlt `WEBHOOK_TOKEN`, erzeugt der erste Start ein
+Token und legt es unter `/config/webhook_token` ab. Die fertige Adresse steht in
+der Oberfläche unter *Einstellungen → Webhook* – von dort kopieren:
 
 ```
 http://SERVER:8099/webhook?token=DEIN_TOKEN
@@ -148,7 +148,8 @@ im Klartext.
 
 Eingebaut sind: CSRF-Token für alle Formulare, eine wachsende Wartezeit nach
 wiederholt falschen Anmeldungen, `X-Frame-Options`/`nosniff`, und ein Webhook,
-der ohne gesetztes `WEBHOOK_TOKEN` gar nicht erst antwortet.
+der nur mit gültigem Token antwortet – das Token wird beim ersten Start selbst
+erzeugt, es gibt also keinen ungeschützten Zwischenzustand.
 
 ## Entwicklung
 

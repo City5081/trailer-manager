@@ -16,7 +16,7 @@ services:
     container_name: trailer-de
     restart: unless-stopped
     ports:
-      - "8099:8080"
+      - "8099:8081"
     environment:
       # --- Zugang zur Weboberflaeche -----------------------------------
       WEB_USERNAME: "hannes"
@@ -37,8 +37,10 @@ services:
       UI_LANGUAGE: "de"        # de | en
 
       # --- Webhook (Emby / Jellyfin / Jellyseerr) ------------------------
-      # Ohne Token bleibt der Webhook geschlossen. Erzeugen: openssl rand -hex 32
-      WEBHOOK_TOKEN: "langes-zufalls-token"
+      # Nichts eintragen noetig: beim ersten Start wird ein Token erzeugt und
+      # unter /config/webhook_token abgelegt. Die fertige Adresse steht in der
+      # Oberflaeche unter Einstellungen -> Webhook.
+      # WEBHOOK_TOKEN: "nur-fuer-ein-bestimmtes-token"
 
       TZ: "Europe/Vienna"
       # Gleiche Kennungen wie die Filmfreigabe (nobody/users)

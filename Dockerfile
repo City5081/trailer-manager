@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     DATA_DIR=/config \
     MOVIES_DIR=/movies \
-    PORT=8080 \
+    PORT=8081 \
     PUID=99 \
     PGID=100
 
@@ -29,7 +29,7 @@ COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh && mkdir -p /config /movies
 
 VOLUME ["/config"]
-EXPOSE 8080
+EXPOSE 8081
 
 HEALTHCHECK --interval=60s --timeout=5s --start-period=20s \
   CMD curl -fsS "http://localhost:${PORT}/health" || exit 1

@@ -51,21 +51,48 @@ DEFAULTS = {
     "overwrite_existing": "0",
 }
 
-PORT = _int("PORT", 8080)
+PORT = _int("PORT", 8081)
+
+
+def _persisted(name, erzeuger):
+    """Einen Zufallswert dauerhaft unter DATA_DIR ablegen und wiederverwenden.
+
+    Gibt es die Datei schon, gilt ihr Inhalt. Laesst sich nichts schreiben -
+    /config nur lesbar eingebunden -, kommt ein fluechtiger Wert zurueck; das
+    meldet der Aufrufer.
+    """
+    path = DATA_DIR / name
+    try:
+        if path.exists():
+            vorhanden = path.read_text(encoding="utf-8").strip()
+            if vorhanden:
+                return vorhanden, True
+        wert = erzeuger()
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_text(wert, encoding="utf-8")
+        path.chmod(0o600)
+        return wert, True
+    except OSError:
+        return erzeuger(), False
+
+
+def ensure_webhook_token():
+    """Webhook-Token besorgen: aus der Umgebung, sonst einmalig erzeugen.
+
+    Ohne Token bliebe der Webhook geschlossen - und wer ihn erst selbst erzeugen
+    muss, vergisst es leicht und wundert sich dann ueber einen stummen Webhook.
+    Der erzeugte Wert steht in der Oberflaeche unter Einstellungen -> Webhook.
+
+    Gibt (token, dauerhaft) zurueck.
+    """
+    if WEBHOOK_TOKEN:
+        return WEBHOOK_TOKEN, True
+    return _persisted("webhook_token", lambda: secrets.token_urlsafe(32))
 
 
 def ensure_secret_key():
     """Sitzungsschluessel dauerhaft ablegen, damit Logins Neustarts ueberleben."""
     if SECRET_KEY:
         return SECRET_KEY
-    path = DATA_DIR / "secret_key"
-    try:
-        if path.exists():
-            return path.read_text(encoding="utf-8").strip()
-        key = secrets.token_hex(32)
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        path.write_text(key, encoding="utf-8")
-        path.chmod(0o600)
-        return key
-    except OSError:
-        return secrets.token_hex(32)
+    key, _dauerhaft = _persisted("secret_key", lambda: secrets.token_hex(32))
+    return key

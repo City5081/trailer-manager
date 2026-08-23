@@ -11,7 +11,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${HOST_PORT:-8099}:8080"
+      - "${HOST_PORT:-8099}:8081"
     environment:
       TZ: "${TZ:-Europe/Vienna}"
       PUID: "${PUID:-99}"
@@ -21,7 +21,7 @@ services:
       # Muss beschreibbar sein, sonst koennen die NFOs nicht geaendert werden.
       - "${MOVIES_PATH:-/mnt/user/Filme}:/movies"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/health"]
       interval: 60s
       timeout: 5s
       start_period: 20s

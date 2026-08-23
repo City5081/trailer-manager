@@ -12,6 +12,7 @@ import threading
 import time
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import quote
 
 from flask import (Flask, abort, flash, jsonify, redirect, render_template,
                    request, session, url_for)
@@ -388,7 +389,7 @@ def settings_page():
     values.update({key: flag(key) for key in keys_flag})
     webhook_url = url_for("webhook", _external=True)
     if config.WEBHOOK_TOKEN:
-        webhook_url += "?token=" + config.WEBHOOK_TOKEN
+        webhook_url += "?token=" + quote(config.WEBHOOK_TOKEN)
     return render_template("settings.html", values=values, webhook_url=webhook_url,
                            runs=db.last_runs(5))
 
@@ -458,13 +459,16 @@ def create_app():
     for key, value in config.DEFAULTS.items():
         if db.get_setting(key) is None:
             db.set_setting(key, value)
+    config.WEBHOOK_TOKEN, dauerhaft = config.ensure_webhook_token()
+    if not dauerhaft:
+        db.log("warn", "Webhook-Token liess sich nicht unter /config ablegen - es "
+                       "gilt nur bis zum Neustart. Schreibrechte pruefen.", "app")
+
     SCANNER = scanner_mod.Scanner(config.MOVIES_DIR, setting)
     SCANNER.start_scheduler()
     db.log("info", "Trailer DE gestartet (Bibliothek: {})".format(config.MOVIES_DIR), "app")
     if not config.WEB_PASSWORD and not config.WEB_PASSWORD_HASH and not config.AUTH_DISABLED:
         db.log("warn", "Kein WEB_PASSWORD gesetzt - Anmeldung nicht moeglich!", "app")
-    if not config.WEBHOOK_TOKEN:
-        db.log("warn", "Kein WEBHOOK_TOKEN gesetzt - der Webhook bleibt geschlossen.", "app")
     return app
 
 
