@@ -67,8 +67,13 @@
       <td>{% if m['trailer_lang'] %}{{ m['trailer_lang']|upper }}{% else %}<span class="muted" title="{{ t('table.lang_unknown') }}">&ndash;</span>{% endif %}</td>
       <td><span class="state {{ m['state'] }}">{{ t('state.' + (m['state'] or 'pending')) }}</span></td>
       <td class="actions">
-        {% if vid %}<a class="btn small" target="_blank" rel="noopener"
-            href="https://www.youtube.com/watch?v={{ vid }}">&#9654;</a>{% endif %}
+        {% if vid %}
+          <a class="btn small icon" target="_blank" rel="noopener"
+             title="{{ t('action.open_youtube') }}"
+             href="https://www.youtube.com/watch?v={{ vid }}">&#9654;</a>
+        {% else %}
+          <span class="btn small icon ghost">&#9654;</span>
+        {% endif %}
         <form method="post" action="{{ url_for('movie_check') }}">
           <input type="hidden" name="csrf" value="{{ csrf_token() }}">
           <input type="hidden" name="path" value="{{ m['path'] }}">

@@ -254,6 +254,17 @@ class Scanner:
         """
         if not self._claim():
             return {"skipped": True, "reason": "A run is already in progress"}
+
+        # Without a key every single entry would fail with the same message.
+        # The run at startup fires a few seconds after the container comes up,
+        # which is before anyone can have finished the setup wizard - that used
+        # to fill the log with one identical error per movie.
+        if not self._api_key():
+            self._release()
+            db.log("warn", "Run ({}) skipped: no TMDB API key configured yet."
+                   .format(trigger), "auto")
+            return {"skipped": True, "reason": "No TMDB API key configured"}
+
         self._stop.clear()
         run_id = db.start_run(trigger)
         self.state.update(started=time.time(), trigger=trigger)

@@ -32,6 +32,7 @@ header {
 nav { display: flex; align-items: center; gap: 16px; }
 nav a { color: var(--text); text-decoration: none; }
 nav a:hover { color: var(--accent); }
+nav a.on { color: var(--accent); font-weight: 600; }
 .langs { display: flex; gap: 6px; }
 .lang { font-size: 12px; padding: 2px 7px; border: 1px solid var(--line); border-radius: 4px; }
 .lang.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -87,7 +88,12 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--lin
 th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
 tbody tr:hover { background: #20262f; }
 td a { color: var(--accent); text-decoration: none; }
-.actions { display: flex; gap: 6px; align-items: center; }
+.actions { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap;
+           white-space: nowrap; }
+/* Fixed width for the play glyph, so the two buttons next to it line up down
+   the whole column even when a movie has no trailer yet. */
+.btn.icon { width: 30px; padding: 4px 0; text-align: center; }
+.btn.icon.ghost { opacity: .25; cursor: default; border-color: transparent; }
 .actions form { display: inline; }
 .empty { color: var(--muted); text-align: center; padding: 26px; }
 

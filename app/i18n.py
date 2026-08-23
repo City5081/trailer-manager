@@ -12,6 +12,7 @@ STRINGS = {
         "app.subtitle": "Trailer fuer Emby, direkt in die NFO-Dateien",
 
         "nav.movies": "Filme",
+        "nav.all": "Alle",
         "nav.settings": "Einstellungen",
         "nav.log": "Protokoll",
         "nav.logout": "Abmelden",
@@ -36,10 +37,10 @@ STRINGS = {
         "action.run_force": "Alle neu pruefen",
         "action.stop": "Abbrechen",
         "action.search": "Trailer suchen",
-        "action.auto": "Automatisch suchen",
+        "action.auto": "Auto",
         "action.auto_hint": "Sucht den besten Trailer und schreibt ihn sofort in "
                             "die NFO.",
-        "action.manual": "Haendisch suchen",
+        "action.manual": "Waehlen",
         "action.manual_hint": "Zeigt alle gefundenen Trailer zur Auswahl.",
         "action.save": "Speichern",
         "action.open_youtube": "Auf YouTube ansehen",
@@ -219,6 +220,7 @@ STRINGS = {
         "app.subtitle": "Trailers for Emby, straight into your NFO files",
 
         "nav.movies": "Movies",
+        "nav.all": "All",
         "nav.settings": "Settings",
         "nav.log": "Log",
         "nav.logout": "Sign out",
@@ -243,10 +245,10 @@ STRINGS = {
         "action.run_force": "Recheck all",
         "action.stop": "Stop",
         "action.search": "Search trailers",
-        "action.auto": "Search automatically",
+        "action.auto": "Auto",
         "action.auto_hint": "Picks the best trailer and writes it into the NFO "
                             "right away.",
-        "action.manual": "Choose by hand",
+        "action.manual": "Pick",
         "action.manual_hint": "Shows every trailer that was found, to pick from.",
         "action.save": "Save",
         "action.open_youtube": "Watch on YouTube",

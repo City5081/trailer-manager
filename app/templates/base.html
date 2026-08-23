@@ -18,7 +18,16 @@
   </div>
   <nav>
     {% if session.get('user') or auth_disabled %}
-      <a href="{{ url_for('index') }}">{{ t('nav.movies') }}</a>
+      {% if nav_libraries %}
+        {% for lib in nav_libraries %}
+          <a class="{% if active_library == lib['id'] %}on{% endif %}"
+             href="{{ url_for('index', library=lib['id']) }}">{{ lib['name'] }}</a>
+        {% endfor %}
+        <a class="{% if request.endpoint == 'index' and not active_library %}on{% endif %}"
+           href="{{ url_for('index') }}">{{ t('nav.all') }}</a>
+      {% else %}
+        <a href="{{ url_for('index') }}">{{ t('nav.movies') }}</a>
+      {% endif %}
       <a href="{{ url_for('settings_page') }}">{{ t('nav.settings') }}</a>
       <a href="{{ url_for('log_page') }}">{{ t('nav.log') }}</a>
     {% endif %}

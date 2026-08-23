@@ -252,11 +252,27 @@ def security_headers(response):
     return response
 
 
+def _optional_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def nav_libraries():
+    """Libraries for the header. Empty while the wizard is still running."""
+    if not setup_done():
+        return []
+    return db.list_libraries(only_enabled=True)
+
+
 @app.context_processor
 def inject_globals():
     return {
         "t": t,
         "csrf_token": csrf_token,
+        "nav_libraries": nav_libraries(),
+        "active_library": _optional_int(request.args.get("library")),
         "lang": current_lang(),
         "languages": i18n.LANGUAGES,
         "link_formats": nfo.LINK_FORMATS,
@@ -395,13 +411,6 @@ def _positive_int(value, default):
         return min(MAX_PAGE, max(1, int(value)))
     except (TypeError, ValueError):
         return default
-
-
-def _optional_int(value):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
 
 
 @app.route("/")
