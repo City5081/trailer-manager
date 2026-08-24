@@ -9,10 +9,8 @@ LANGUAGES = {"de": "Deutsch", "en": "English"}
 STRINGS = {
     "de": {
         "app.title": "Trailer Manager",
-        "app.subtitle": "Trailer für Emby, direkt in die NFO-Dateien",
 
         "nav.movies": "Filme",
-        "nav.all": "Alle",
         "nav.settings": "Einstellungen",
         "nav.log": "Protokoll",
         "nav.logout": "Abmelden",
@@ -221,10 +219,8 @@ STRINGS = {
     },
     "en": {
         "app.title": "Trailer Manager",
-        "app.subtitle": "Trailers for Emby, straight into your NFO files",
 
         "nav.movies": "Movies",
-        "nav.all": "All",
         "nav.settings": "Settings",
         "nav.log": "Log",
         "nav.logout": "Sign out",

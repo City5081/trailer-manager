@@ -9,13 +9,10 @@
 </head>
 <body>
 <header>
-  <div class="brand">
+  <a class="brand" href="{{ url_for('index') }}">
     <img class="logo" src="{{ url_for('static', filename='logo.svg') }}" alt="" width="30" height="30">
-    <span>
-      <strong>{{ t('app.title') }}</strong>
-      <span class="sub">{{ t('app.subtitle') }}</span>
-    </span>
-  </div>
+    <strong>{{ t('app.title') }}</strong>
+  </a>
   <nav>
     {% if session.get('user') or auth_disabled %}
       {% if nav_libraries %}
@@ -23,8 +20,6 @@
           <a class="{% if active_library == lib['id'] %}on{% endif %}"
              href="{{ url_for('index', library=lib['id']) }}">{{ lib['name'] }}</a>
         {% endfor %}
-        <a class="{% if request.endpoint == 'index' and not active_library %}on{% endif %}"
-           href="{{ url_for('index') }}">{{ t('nav.all') }}</a>
       {% else %}
         <a href="{{ url_for('index') }}">{{ t('nav.movies') }}</a>
       {% endif %}

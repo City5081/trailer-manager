@@ -25,10 +25,12 @@ header {
   background: var(--panel); border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 5;
 }
-.brand { display: flex; align-items: center; gap: 12px; }
+/* The brand is the way back to the unfiltered list, so it is a link. */
+.brand { display: flex; align-items: center; gap: 12px;
+         color: var(--text); text-decoration: none; }
+.brand:hover strong { color: var(--accent); }
 .brand .logo { display: block; border-radius: 7px; }
 .brand strong { font-size: 17px; }
-.brand .sub { color: var(--muted); margin-left: 10px; font-size: 13px; }
 nav { display: flex; align-items: center; gap: 16px; }
 nav a { color: var(--text); text-decoration: none; }
 nav a:hover { color: var(--accent); }
@@ -177,7 +179,6 @@ footer {
 }
 
 @media (max-width: 560px) {
-  .brand .sub { display: none; }
   .stats div, .libcard .stats div { flex: 1 1 calc(50% - 8px); }
   /* The header already filters by library, so that column can go too. */
   .hide-xs { display: none; }
