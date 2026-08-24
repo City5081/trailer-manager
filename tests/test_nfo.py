@@ -154,3 +154,18 @@ def test_walk_finds_nfos(tmp_path):
     found = {p for p, _m, _s in nfo.walk_nfo_files(tmp_path)}
     assert len(found) == 1
     assert next(iter(found)).endswith("a.nfo")
+
+
+def test_titles_starting_with_dots_are_not_mistaken_for_hidden_folders(tmp_path):
+    """"... denn zum Kuessen sind sie da" is a real film, not a dotfile."""
+    for name in ("... denn zum Kuessen sind sie da (1997)", "...And Justice for All (1979)"):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / "movie.nfo").write_text("<movie/>", encoding="utf-8")
+    hidden = tmp_path / ".AppleDouble"
+    hidden.mkdir()
+    (hidden / "movie.nfo").write_text("<movie/>", encoding="utf-8")
+
+    found = [p for p, _m, _s in nfo.walk_nfo_files(tmp_path)]
+    assert len(found) == 2
+    assert not any(".AppleDouble" in p for p in found)

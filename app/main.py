@@ -474,6 +474,7 @@ def movie_save():
         nfo.write_trailer(Path(path), value, lockdata=flag("lockdata"),
                           backup=flag("backup", "1"))
     except (nfo.WriteError, OSError) as e:
+        db.log("error", "{}:\n{}".format(row["title"], nfo.failure_report(path, e)), "write")
         flash(str(e).splitlines()[0], "error")
         return redirect(url_for("movie_detail", path=path))
 
@@ -497,18 +498,6 @@ def movie_check():
     flash("{}: {}".format(status, msg), "ok" if status == "ok" else "error")
     # Back to wherever the button was pressed - the list or the detail page.
     return redirect(_back())
-
-
-@app.route("/movie/diag")
-@login_required
-def movie_diag():
-    """Plain text report on permissions - the usual cause of write failures."""
-    path = request.args.get("path", "")
-    row = db.get_movie(path)
-    if not row:
-        abort(404)
-    return ("\n".join(nfo.check_write_access(path)), 200,
-            {"Content-Type": "text/plain; charset=utf-8"})
 
 
 @app.route("/run", methods=["POST"])

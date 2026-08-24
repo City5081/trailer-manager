@@ -132,6 +132,18 @@ def check_write_access(nfo_path):
     return lines
 
 
+def failure_report(nfo_path, error):
+    """Everything needed to understand a failed write, as one log entry.
+
+    Permissions are the usual cause and they are awkward to check from the
+    outside, so the facts are gathered right when the write fails instead of
+    leaving a button in the interface that nobody presses until it is too late.
+    """
+    lines = [str(error).strip(), ""]
+    lines.extend(check_write_access(nfo_path))
+    return "\n".join(lines)
+
+
 def _perm_hint(path):
     return ("Possible causes:\n"
             "  - The SMB share is mounted read only (connected as guest, or set to\n"
@@ -305,6 +317,16 @@ def parse_nfo(path, kind=None):
     }
 
 
+def _is_hidden(name):
+    """True for genuinely hidden folders like .git or .AppleDouble.
+
+    A single leading dot marks a hidden folder; several do not. Titles such as
+    "... denn zum Kuessen sind sie da" begin with three, and skipping their
+    folder meant the movie never showed up at all.
+    """
+    return name.startswith(".") and not name.startswith("..")
+
+
 def walk_nfo_files(root_path, stop=None, only_names=None):
     """Collect NFO files. os.scandir is much faster than Path.rglob over SMB,
     because type and size already come with the directory listing.
@@ -325,7 +347,7 @@ def walk_nfo_files(root_path, stop=None, only_names=None):
                 for entry in it:
                     try:
                         if entry.is_dir(follow_symlinks=False):
-                            if not entry.name.startswith("."):
+                            if not _is_hidden(entry.name):
                                 stack.append(entry.path)
                         elif (entry.name.lower() in wanted if wanted
                               else entry.name.lower().endswith(".nfo")):

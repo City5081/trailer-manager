@@ -47,7 +47,8 @@
 <div class="card">
   <h2>{{ t('library.title') }}</h2>
   <p class="hint">{{ t('library.hint') }}</p>
-  <table>
+  <div class="tablewrap">
+<table>
     <thead><tr>
       <th>{{ t('library.name') }}</th><th>{{ t('library.kind') }}</th>
       <th>{{ t('library.path') }}</th><th>{{ t('library.entries') }}</th>
@@ -73,6 +74,7 @@
     {% endfor %}
     </tbody>
   </table>
+</div>
 
   <form method="post" action="{{ url_for('library_add') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">

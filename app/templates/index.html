@@ -48,11 +48,13 @@
   <a class="btn" href="{{ url_for('index') }}">{{ t('action.reset') }}</a>
 </form>
 
+<div class="tablewrap">
 <table>
   <thead><tr>
-    <th>{{ t('table.title') }}</th><th>{{ t('table.library') }}</th>
-    <th>{{ t('table.year') }}</th><th>{{ t('table.tmdb') }}</th>
-    <th>{{ t('table.trailer') }}</th><th>{{ t('table.lang') }}</th><th>{{ t('table.state') }}</th>
+    <th>{{ t('table.title') }}</th><th class="hide-xs">{{ t('table.library') }}</th>
+    <th class="hide-sm">{{ t('table.year') }}</th><th class="hide-sm">{{ t('table.tmdb') }}</th>
+    <th class="hide-sm">{{ t('table.trailer') }}</th>
+    <th>{{ t('table.lang') }}</th><th>{{ t('table.state') }}</th>
     <th>{{ t('table.actions') }}</th>
   </tr></thead>
   <tbody>
@@ -60,10 +62,10 @@
     {% set vid = video_id(m['trailer']) %}
     <tr>
       <td><a href="{{ url_for('movie_detail', path=m['path']) }}">{{ m['title'] }}</a></td>
-      <td class="small muted">{{ m['library_name'] or '' }}</td>
-      <td>{{ m['year'] or '' }}</td>
-      <td>{{ m['tmdb_id'] or '-' }}</td>
-      <td class="mono">{{ vid or (m['trailer'] and '?' or '-') }}</td>
+      <td class="small muted hide-xs">{{ m['library_name'] or '' }}</td>
+      <td class="hide-sm">{{ m['year'] or '' }}</td>
+      <td class="hide-sm">{{ m['tmdb_id'] or '-' }}</td>
+      <td class="mono hide-sm">{{ vid or (m['trailer'] and '?' or '-') }}</td>
       <td>{% if m['trailer_lang'] %}{{ m['trailer_lang']|upper }}{% else %}<span class="muted" title="{{ t('table.lang_unknown') }}">&ndash;</span>{% endif %}</td>
       <td><span class="state {{ m['state'] }}">{{ t('state.' + (m['state'] or 'pending')) }}</span></td>
       <td class="actions">
@@ -88,6 +90,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 
 {% if pages > 1 %}
 <div class="pager">

@@ -127,11 +127,6 @@ footer {
 .lvl-warn td { color: var(--warn); }
 .lvl-ok td { color: var(--ok); }
 
-@media (max-width: 720px) {
-  header { flex-direction: column; align-items: flex-start; }
-  .stats div { flex: 1 1 40%; }
-}
-
 .muted { color: var(--muted); }
 .url { background: #12161d; border: 1px solid var(--line); border-radius: 7px;
        padding: 10px 12px; }
@@ -150,3 +145,41 @@ footer {
 .libcard .stats div { min-width: 88px; padding: 8px 12px; }
 .libcard .stats b { font-size: 18px; }
 .libcard .stats span { font-size: 11px; }
+
+/* A table never squeezes its action buttons off the screen; it scrolls. */
+.tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 860px) {
+  header { flex-direction: column; align-items: flex-start; gap: 10px;
+           padding: 12px 14px; }
+  nav { flex-wrap: wrap; row-gap: 8px; gap: 14px; }
+  main { padding: 14px 12px 60px; }
+  .flashes { padding: 0 12px; }
+
+  /* Three tiles per row instead of two oversized ones. */
+  .stats { gap: 8px; }
+  .stats div, .libcard .stats div {
+    flex: 1 1 calc(33.333% - 8px); min-width: 0; padding: 9px 10px;
+  }
+  .stats b, .libcard .stats b { font-size: 17px; }
+  .stats span, .libcard .stats span { font-size: 10px; }
+
+  .filters { flex-direction: column; align-items: stretch; }
+  .filters input, .filters select, .filters button, .filters .btn { width: 100%;
+    min-width: 0; }
+  .toolbar form, .toolbar button, .toolbar .btn { flex: 1 1 auto; }
+
+  /* Year, TMDB id and the raw video id are the least useful on a phone. */
+  .hide-sm { display: none; }
+  table { min-width: 520px; }
+  th, td { padding: 7px 8px; }
+  .libhead .mono { display: none; }
+}
+
+@media (max-width: 560px) {
+  .brand .sub { display: none; }
+  .stats div, .libcard .stats div { flex: 1 1 calc(50% - 8px); }
+  /* The header already filters by library, so that column can go too. */
+  .hide-xs { display: none; }
+  table { min-width: 430px; }
+}

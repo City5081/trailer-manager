@@ -88,8 +88,9 @@ drops privileges. NFOs written afterwards belong to the same user as the rest of
 the share.
 
 If the NFOs belong to Emby or another container, *Tools → New Permissions*
-helps; otherwise writing fails with "Permission denied". The *Check write
-access* button on a movie's detail page reports exactly what is wrong.
+helps; otherwise writing fails with "Permission denied". A failed write writes
+the full diagnosis to the log by itself: owner, permissions and an actual write
+test on the folder.
 
 ## Libraries
 

@@ -9,7 +9,7 @@ LANGUAGES = {"de": "Deutsch", "en": "English"}
 STRINGS = {
     "de": {
         "app.title": "Trailer Manager",
-        "app.subtitle": "Trailer fuer Emby, direkt in die NFO-Dateien",
+        "app.subtitle": "Trailer für Emby, direkt in die NFO-Dateien",
 
         "nav.movies": "Filme",
         "nav.all": "Alle",
@@ -25,7 +25,7 @@ STRINGS = {
         "login.hint": "Zugangsdaten stammen aus der Einrichtung oder aus den "
                       "Umgebungsvariablen des Containers.",
 
-        "stats.total": "Eintraege",
+        "stats.total": "Einträge",
         "stats.with_trailer": "mit Trailer",
         "stats.primary_lang": "in Zielsprache",
         "stats.no_trailer": "ohne Trailer",
@@ -34,23 +34,22 @@ STRINGS = {
 
         "action.scan": "Bibliothek einlesen",
         "action.run": "Automatiklauf starten",
-        "action.run_force": "Alle neu pruefen",
+        "action.run_force": "Alle neu prüfen",
         "action.stop": "Abbrechen",
         "action.search": "Trailer suchen",
         "action.auto": "Auto",
         "action.auto_hint": "Sucht den besten Trailer und schreibt ihn sofort in "
                             "die NFO.",
-        "action.manual": "Waehlen",
+        "action.manual": "Suchen",
         "action.manual_hint": "Zeigt alle gefundenen Trailer zur Auswahl.",
         "action.save": "Speichern",
         "action.open_youtube": "Auf YouTube ansehen",
-        "action.diag": "Schreibrechte pruefen",
-        "action.apply": "Uebernehmen",
+        "action.apply": "Übernehmen",
         "action.remove": "Entfernen",
         "action.test": "Verbindung testen",
         "action.filter": "Filtern",
-        "action.reset": "Zuruecksetzen",
-        "action.change_password": "Passwort aendern",
+        "action.reset": "Zurücksetzen",
+        "action.change_password": "Passwort ändern",
 
         "table.title": "Titel",
         "table.year": "Jahr",
@@ -58,9 +57,9 @@ STRINGS = {
         "table.trailer": "Trailer",
         "table.library": "Bibliothek",
         "table.lang": "Sprache",
-        "table.lang_unknown": "noch nicht geprueft",
+        "table.lang_unknown": "noch nicht geprüft",
         "table.state": "Status",
-        "table.checked": "Geprueft",
+        "table.checked": "Geprüft",
         "table.actions": "Aktionen",
         "table.empty": "Keine Filme gefunden. Zuerst die Bibliothek einlesen.",
 
@@ -82,71 +81,71 @@ STRINGS = {
         "detail.official": "offiziell",
 
         "setup.title": "Einrichtung",
-        "setup.intro": "Einmalige Grundeinstellungen. Alles laesst sich spaeter "
-                       "unter Einstellungen aendern.",
+        "setup.intro": "Einmalige Grundeinstellungen. Alles lässt sich später "
+                       "unter Einstellungen ändern.",
         "setup.account": "Zugang",
         "setup.account_env": "Benutzername und Passwort kommen aus den "
                              "Umgebungsvariablen des Containers - dieser Schritt "
-                             "entfaellt.",
+                             "entfällt.",
         "setup.password_repeat": "Passwort wiederholen",
         "setup.tmdb_hint": "Der v3-API-Key von themoviedb.org, nicht das "
                            "Read-Access-Token. Kostenlos im TMDB-Konto unter "
                            "Einstellungen -> API.",
         "setup.library_hint": "Weitere Ordner - etwa Anime oder Serien - kommen "
-                              "spaeter unter Einstellungen dazu.",
+                              "später unter Einstellungen dazu.",
         "setup.behaviour": "Verhalten",
-        "setup.skip_check": "ohne Pruefung des API-Keys speichern",
-        "setup.finish": "Einrichtung abschliessen",
+        "setup.skip_check": "ohne Prüfung des API-Keys speichern",
+        "setup.finish": "Einrichtung abschließen",
         "setup.finished": "Einrichtung abgeschlossen. Die Webhook-Adresse steht "
                           "weiter unten.",
         "setup.err_user": "Bitte einen Benutzernamen eintragen.",
         "setup.err_short": "Das Passwort ist zu kurz (mindestens 8 Zeichen).",
-        "setup.err_repeat": "Die beiden Passwoerter stimmen nicht ueberein.",
+        "setup.err_repeat": "Die beiden Passwörter stimmen nicht überein.",
         "setup.err_key": "Bitte den TMDB-API-Key eintragen.",
 
         "settings.title": "Einstellungen",
         "settings.tmdb": "TMDB",
         "settings.api_key": "API-Key (v3)",
         "settings.languages": "Sprachen (Reihenfolge)",
-        "settings.languages_hint": "z.B. 'de' fuer ausschliesslich deutsche Trailer, "
-                                   "'de,en' mit englischem Rueckfall",
+        "settings.languages_hint": "z.B. 'de' für ausschließlich deutsche Trailer, "
+                                   "'de,en' mit englischem Rückfall",
         "settings.writing": "Schreiben",
         "settings.link_format": "Linkformat",
         "settings.keep_format": "vorhandenes Format je Film beibehalten",
         "settings.backup": "Sicherungskopie (.bak) anlegen",
-        "settings.lockdata": "<lockdata>true</lockdata> ergaenzen",
-        "settings.overwrite": "auch fertige Filme erneut pruefen",
+        "settings.lockdata": "<lockdata>true</lockdata> ergänzen",
+        "settings.overwrite": "auch fertige Filme erneut prüfen",
         "settings.schedule": "Zeitplan",
         "settings.interval": "Intervall (Stunden, 0 = aus)",
         "settings.scan_on_start": "beim Start einmal durchlaufen",
-        "settings.recheck": "Filme ohne Treffer erneut pruefen nach (Tagen)",
+        "settings.recheck": "Filme ohne Treffer erneut prüfen nach (Tagen)",
         "settings.webhook_wait": "Nach einer Webhook-Meldung auf die NFO warten (Sekunden)",
         "settings.webhook_wait_hint": "Emby legt erst die Videodatei an und schreibt "
                                       "die NFO kurz danach. In der Zwischenzeit gibt "
                                       "es nichts zu finden - deshalb wird mehrfach "
                                       "nachgesehen. 0 schaltet das Warten ab.",
-        "settings.ui": "Oberflaeche",
+        "settings.ui": "Oberfläche",
         "settings.ui_language": "Sprache",
         "settings.password": "Passwort",
         "settings.pw_current": "Aktuelles Passwort",
         "settings.pw_new": "Neues Passwort",
-        "settings.pw_saved": "Passwort geaendert.",
+        "settings.pw_saved": "Passwort geändert.",
         "settings.pw_wrong": "Das aktuelle Passwort stimmt nicht.",
         "settings.pw_from_env": "Das Passwort kommt aus den Umgebungsvariablen und "
-                                "laesst sich hier nicht aendern.",
+                                "lässt sich hier nicht ändern.",
         "settings.saved": "Einstellungen gespeichert.",
 
         "settings.webhook": "Webhook",
-        "webhook.hint": "Diese Adresse traegst du in Emby, Jellyfin oder Jellyseerr "
-                        "ein. Jeder neu hinzugefuegte Film bekommt seinen Trailer "
-                        "dann sofort, ohne auf den naechsten Automatiklauf zu warten.",
+        "webhook.hint": "Diese Adresse trägst du in Emby, Jellyfin oder Jellyseerr "
+                        "ein. Jeder neu hinzugefügte Film bekommt seinen Trailer "
+                        "dann sofort, ohne auf den nächsten Automatiklauf zu warten.",
         "webhook.emby": "In Emby einrichten",
         "webhook.emby_where": "Einstellungen -> Benachrichtigungen -> Webhooks -> "
-                              "Hinzufuegen",
-        "webhook.emby_event": "Ereignis: nur 'Neue Medien hinzugefuegt' "
+                              "Hinzufügen",
+        "webhook.emby_event": "Ereignis: nur 'Neue Medien hinzugefügt' "
                               "(Library - New media added)",
         "webhook.emby_type": "Inhaltstyp: application/json",
-        "webhook.emby_limit": "Bibliotheksereignisse beschraenken auf: Filme",
+        "webhook.emby_limit": "Bibliotheksereignisse beschränken auf: Filme",
         "webhook.emby_note": "multipart/form-data wird ebenfalls verstanden, JSON ist "
                              "aber eindeutiger. Die Bezeichnungen unterscheiden sich "
                              "je nach Emby-Version leicht.",
@@ -155,38 +154,38 @@ STRINGS = {
                                   "Destination, Notification Type 'Item Added', "
                                   "Item Type 'Movies'",
         "webhook.jellyseerr": "In Jellyseerr einrichten",
-        "webhook.jellyseerr_where": "Settings -> Notifications -> Webhook, Ausloeser "
+        "webhook.jellyseerr_where": "Settings -> Notifications -> Webhook, Auslöser "
                                     "'Media Available'",
         "webhook.token_note": "Das Token steckt in der Adresse. Wer sie kennt, kann "
-                              "Durchlaeufe ausloesen - also nicht oeffentlich teilen.",
+                              "Durchläufe auslösen - also nicht öffentlich teilen.",
 
         "settings.yes": "ein",
         "settings.no": "aus",
         "library.title": "Bibliotheken",
         "library.hint": "Jeder Ordner wird getrennt behandelt und kann eigene "
-                        "Einstellungen bekommen. Was leer bleibt, uebernimmt den "
+                        "Einstellungen bekommen. Was leer bleibt, übernimmt den "
                         "globalen Wert weiter oben.",
         "library.name": "Name",
         "library.path": "Ordner im Container",
         "library.kind": "Inhalt",
         "library.kind_movie": "Filme",
         "library.kind_tv": "Serien",
-        "library.entries": "Eintraege",
+        "library.entries": "Einträge",
         "library.enabled": "aktiv",
         "library.disabled": "abgeschaltet",
-        "library.add": "Bibliothek hinzufuegen",
+        "library.add": "Bibliothek hinzufügen",
         "library.added": "Bibliothek angelegt.",
         "library.deleted": "Bibliothek entfernt. Die NFO-Dateien selbst wurden nicht "
-                           "angeruehrt.",
-        "library.delete_confirm": "Diese Bibliothek und ihre Eintraege aus der "
-                                  "Datenbank entfernen? Die Dateien bleiben unberuehrt.",
+                           "angerührt.",
+        "library.delete_confirm": "Diese Bibliothek und ihre Einträge aus der "
+                                  "Datenbank entfernen? Die Dateien bleiben unberührt.",
         "library.edit": "Bearbeiten",
-        "library.scan": "Nur diese pruefen",
+        "library.scan": "Nur diese prüfen",
         "library.overrides": "Abweichende Einstellungen",
-        "library.inherit": "global uebernehmen",
-        "library.err_fields": "Name und Ordner duerfen nicht leer sein.",
+        "library.inherit": "global übernehmen",
+        "library.err_fields": "Name und Ordner dürfen nicht leer sein.",
         "library.err_path": "Diesen Ordner gibt es im Container nicht. Ist er als "
-                            "Volume eingehaengt?",
+                            "Volume eingehängt?",
         "library.all": "alle Bibliotheken",
         "library.none": "Noch keine Bibliothek angelegt.",
         "library.tv_note": "Bei Serien wird je Serie die tvshow.nfo geschrieben, "
@@ -195,29 +194,29 @@ STRINGS = {
         "webhook.never": "noch nichts empfangen",
         "webhook.test_hint": "Emby hat bei den Webhooks einen Knopf zum Testen. "
                              "Danach steht der Empfang hier und im Protokoll - "
-                             "ein Testereignis loest bewusst keinen Durchlauf aus.",
+                             "ein Testereignis löst bewusst keinen Durchlauf aus.",
 
         "log.title": "Protokoll",
         "log.time": "Zeit",
         "log.level": "Art",
         "log.source": "Quelle",
         "log.message": "Meldung",
-        "log.empty": "Noch keine Eintraege.",
-        "log.runs": "Letzte Durchlaeufe",
-        "run.trigger": "Ausloeser",
+        "log.empty": "Noch keine Einträge.",
+        "log.runs": "Letzte Durchläufe",
+        "run.trigger": "Auslöser",
         "run.scanned": "eingelesen",
-        "run.checked": "geprueft",
+        "run.checked": "geprüft",
         "run.updated": "aktualisiert",
         "run.failed": "Fehler",
         "run.duration": "Dauer",
 
-        "status.busy": "Durchlauf laeuft",
+        "status.busy": "Durchlauf läuft",
         "status.idle": "bereit",
         "msg.started": "Durchlauf gestartet.",
-        "msg.already": "Es laeuft bereits ein Durchgang.",
+        "msg.already": "Es läuft bereits ein Durchgang.",
         "msg.saved": "Gespeichert.",
         "msg.removed": "Trailer entfernt.",
-        "msg.invalid_link": "Aus dieser Eingabe laesst sich keine YouTube-ID lesen.",
+        "msg.invalid_link": "Aus dieser Eingabe lässt sich keine YouTube-ID lesen.",
         "msg.test_ok": "Verbindung und API-Key in Ordnung.",
     },
     "en": {
@@ -253,11 +252,10 @@ STRINGS = {
         "action.auto": "Auto",
         "action.auto_hint": "Picks the best trailer and writes it into the NFO "
                             "right away.",
-        "action.manual": "Pick",
+        "action.manual": "Search",
         "action.manual_hint": "Shows every trailer that was found, to pick from.",
         "action.save": "Save",
         "action.open_youtube": "Watch on YouTube",
-        "action.diag": "Check write access",
         "action.apply": "Apply",
         "action.remove": "Remove",
         "action.test": "Test connection",

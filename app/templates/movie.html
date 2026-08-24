@@ -21,7 +21,6 @@
         <a class="btn" target="_blank" rel="noopener" href="https://www.youtube.com/watch?v={{ vid }}">&#9654; {{ t('action.open_youtube') }}</a>
       {% endif %}
       <a class="btn" href="{{ url_for('movie_detail', path=movie['path'], search=1) }}">{{ t('action.manual') }}</a>
-      <a class="btn" target="_blank" rel="noopener" href="{{ url_for('movie_diag', path=movie['path']) }}">{{ t('action.diag') }}</a>
     </div>
   </form>
 
@@ -38,7 +37,8 @@
 <div class="card">
   <h2>{{ t('detail.candidates') }}</h2>
   {% if candidates %}
-  <table>
+  <div class="tablewrap">
+<table>
     <thead><tr><th>{{ t('table.lang') }}</th><th>Typ</th><th>Name</th><th></th></tr></thead>
     <tbody>
       {% for c in candidates %}
@@ -60,6 +60,7 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
   {% else %}<p>{{ t('detail.none') }}</p>{% endif %}
 </div>
 {% endif %}

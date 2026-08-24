@@ -2,7 +2,8 @@
 {% block content %}
 <div class="card">
   <h2>{{ t('log.runs') }}</h2>
-  <table>
+  <div class="tablewrap">
+<table>
     <thead><tr><th>{{ t('log.time') }}</th><th>{{ t('run.trigger') }}</th><th>{{ t('run.scanned') }}</th>
       <th>{{ t('run.checked') }}</th><th>{{ t('run.updated') }}</th><th>{{ t('run.failed') }}</th><th>{{ t('run.duration') }}</th></tr></thead>
     <tbody>
@@ -17,10 +18,12 @@
     </tbody>
   </table>
 </div>
+</div>
 
 <div class="card">
   <h2>{{ t('log.title') }}</h2>
-  <table>
+  <div class="tablewrap">
+<table>
     <thead><tr><th>{{ t('log.time') }}</th><th>{{ t('log.level') }}</th><th>{{ t('log.source') }}</th><th>{{ t('log.message') }}</th></tr></thead>
     <tbody>
     {% for e in entries %}
@@ -33,5 +36,6 @@
     {% endfor %}
     </tbody>
   </table>
+</div>
 </div>
 {% endblock %}

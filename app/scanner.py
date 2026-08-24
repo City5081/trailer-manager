@@ -222,7 +222,8 @@ class Scanner:
         except (nfo.WriteError, OSError) as e:
             msg = str(e).splitlines()[0]
             db.mark_result(path, "error", msg)
-            db.log("error", "{}: {}".format(row["title"], msg), "write")
+            db.log("error", "{}:\n{}".format(row["title"], nfo.failure_report(path, e)),
+                   "write")
             return "error", msg
 
         db.mark_result(path, "ok", "Trailer [{}] {}".format(best.get("lang"), best["key"]),
