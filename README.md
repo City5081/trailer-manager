@@ -264,6 +264,7 @@ docker/
 tests/         pytest suite (no network access)
 tools/
   hash_password.py  creates WEB_PASSWORD_HASH
+  render_logo.py    regenerates the PNG logos from logo.svg
 ```
 
 ## License
