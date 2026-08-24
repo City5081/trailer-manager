@@ -47,6 +47,12 @@ main { padding: 20px 22px 60px; max-width: 1280px; margin: 0 auto; }
 }
 .card.narrow { max-width: 420px; margin: 60px auto; }
 .card.setup { max-width: 620px; margin: 30px auto; }
+/* Way back out of a detail page. */
+.cardhead { display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 12px; }
+.close { color: var(--muted); text-decoration: none; font-size: 22px;
+         line-height: 1; padding: 2px 8px; border-radius: 7px; }
+.close:hover { color: var(--text); background: #262d38; }
 h1 { font-size: 20px; margin: 0 0 12px; }
 h2 { font-size: 15px; margin: 20px 0 8px; color: var(--muted);
      text-transform: uppercase; letter-spacing: .06em; }
@@ -84,6 +90,10 @@ label input, label select { margin-top: 4px; color: var(--text); }
 label.inline { display: flex; align-items: center; gap: 8px; color: var(--text); }
 label.inline input { width: auto; margin: 0; }
 .filters input, .filters select { width: auto; min-width: 160px; }
+/* A checkbox must not be stretched to the width of a text field, or its label
+   ends up floating far off to the right. */
+.filters input[type="checkbox"] { min-width: 0; width: 16px; height: 16px; }
+.filters label.inline { white-space: nowrap; }
 
 table { width: 100%; border-collapse: collapse; margin-top: 8px; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
@@ -169,6 +179,7 @@ footer {
   .filters { flex-direction: column; align-items: stretch; }
   .filters input, .filters select, .filters button, .filters .btn { width: 100%;
     min-width: 0; }
+  .filters input[type="checkbox"] { width: 16px; }
   .toolbar form, .toolbar button, .toolbar .btn { flex: 1 1 auto; }
 
   /* Year, TMDB id and the raw video id are the least useful on a phone. */

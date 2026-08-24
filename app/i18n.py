@@ -101,6 +101,24 @@ STRINGS = {
         "setup.err_repeat": "Die beiden Passwörter stimmen nicht überein.",
         "setup.err_key": "Bitte den TMDB-API-Key eintragen.",
 
+        "action.back": "Zurück zur Liste",
+        "settings.keep_format_hint": "Steht in einer NFO schon ein Trailer, wird "
+                                     "dessen Schreibweise beibehalten - ein "
+                                     "plugin://-Link bleibt einer, eine YouTube-URL "
+                                     "bleibt eine. Ohne diese Option würde jeder Lauf "
+                                     "jede Datei anfassen, nur um die Schreibweise "
+                                     "umzustellen.",
+        "settings.backup_hint": "Vor der ersten Änderung an einer NFO wird eine Kopie "
+                                "als <name>.nfo.bak abgelegt - nur einmal, spätere "
+                                "Änderungen überschreiben sie nicht. Braucht "
+                                "Schreibrechte im Filmordner.",
+        "settings.lockdata_hint": "Trägt zusätzlich <lockdata>true</lockdata> in die "
+                                  "NFO ein. Emby behandelt den Eintrag damit als "
+                                  "gesperrt und holt seine Metadaten nicht mehr selbst "
+                                  "aus dem Internet. Vorsicht: Das gilt für den ganzen "
+                                  "Film, nicht nur für den Trailer - Titel, "
+                                  "Beschreibung und Bilder werden dann auch nicht mehr "
+                                  "aktualisiert.",
         "settings.title": "Einstellungen",
         "settings.tmdb": "TMDB",
         "settings.api_key": "API-Key (v3)",
@@ -309,6 +327,20 @@ STRINGS = {
         "setup.err_repeat": "The two passwords do not match.",
         "setup.err_key": "Please enter the TMDB API key.",
 
+        "action.back": "Back to the list",
+        "settings.keep_format_hint": "When an NFO already holds a trailer, its "
+                                     "notation is kept - a plugin:// link stays one, "
+                                     "a YouTube URL stays one. Without this every run "
+                                     "would touch every file just to change the "
+                                     "notation.",
+        "settings.backup_hint": "Before the first change to an NFO a copy is saved as "
+                                "<name>.nfo.bak - once only, later changes do not "
+                                "overwrite it. Needs write access in the movie folder.",
+        "settings.lockdata_hint": "Also writes <lockdata>true</lockdata> into the NFO. "
+                                  "Emby then treats the entry as locked and stops "
+                                  "fetching metadata for it. Careful: that covers the "
+                                  "whole item, not just the trailer - title, plot and "
+                                  "artwork stop being updated as well.",
         "settings.title": "Settings",
         "settings.tmdb": "TMDB",
         "settings.api_key": "API key (v3)",

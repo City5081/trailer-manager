@@ -2,7 +2,11 @@
 {% block content %}
 {% set vid = video_id(movie['trailer']) %}
 <div class="card">
-  <h1>{{ movie['title'] }} {% if movie['year'] %}<small>({{ movie['year'] }})</small>{% endif %}</h1>
+  <div class="cardhead">
+    <h1>{{ movie['title'] }} {% if movie['year'] %}<small>({{ movie['year'] }})</small>{% endif %}</h1>
+    <a class="close" title="{{ t('action.back') }}"
+       href="{{ url_for('index', library=movie['library_id']) }}">&times;</a>
+  </div>
   <p class="mono small break">{{ movie['path'] }}</p>
   <p>TMDB: {{ movie['tmdb_id'] or '-' }} &middot; IMDb: {{ movie['imdb_id'] or '-' }} &middot;
      <span class="state {{ movie['state'] }}">{{ t('state.' + (movie['state'] or 'pending')) }}</span>

@@ -18,8 +18,11 @@
     </select>
   </label>
   <label class="inline"><input type="checkbox" name="keep_format" {% if values.keep_format %}checked{% endif %}> {{ t('settings.keep_format') }}</label>
+  <p class="hint">{{ t('settings.keep_format_hint') }}</p>
   <label class="inline"><input type="checkbox" name="backup" {% if values.backup %}checked{% endif %}> {{ t('settings.backup') }}</label>
+  <p class="hint">{{ t('settings.backup_hint') }}</p>
   <label class="inline"><input type="checkbox" name="lockdata" {% if values.lockdata %}checked{% endif %}> {{ t('settings.lockdata') }}</label>
+  <p class="hint">{{ t('settings.lockdata_hint') }}</p>
   <label class="inline"><input type="checkbox" name="overwrite_existing" {% if values.overwrite_existing %}checked{% endif %}> {{ t('settings.overwrite') }}</label>
 
   <h2>{{ t('settings.schedule') }}</h2>
