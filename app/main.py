@@ -420,15 +420,20 @@ def index():
     state = request.args.get("state", "").strip()
     only_missing = request.args.get("missing") == "1"
     library_id = _optional_int(request.args.get("library"))
+    sort = request.args.get("sort", "title")
+    if sort not in db.SORT_COLUMNS:
+        sort = "title"
+    direction = "desc" if request.args.get("dir") == "desc" else "asc"
     page = _positive_int(request.args.get("page"), 1)
     per_page = 100
     rows, total = db.list_movies(search or None, state or None, only_missing,
                                  limit=per_page, offset=(page - 1) * per_page,
-                                 library_id=library_id)
+                                 library_id=library_id, sort=sort, direction=direction)
     return render_template("index.html", movies=rows, total=total, page=page,
                            pages=max(1, (total + per_page - 1) // per_page),
                            library_stats=library_stats(library_id),
                            libraries=db.list_libraries(), library_id=library_id,
+                           sort=sort, direction=direction,
                            search=search, state=state,
                            only_missing=only_missing, video_id=nfo.video_id_from)
 

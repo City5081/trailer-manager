@@ -30,6 +30,8 @@
 </div>
 
 <form method="get" class="filters">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="dir" value="{{ direction }}">
   <input name="q" value="{{ search }}" placeholder="{{ t('filter.search') }}">
   <select name="library">
     <option value="">{{ t('library.all') }}</option>
@@ -50,11 +52,29 @@
 
 <div class="tablewrap">
 <table>
+  {# Columns where the interesting end is the high one: newest, latest, highest. #}
+  {% set desc_first = ['year', 'changed', 'checked'] %}
+  {% macro sortable(key, label) %}
+    {%- if sort == key -%}
+      {% set nextdir = 'asc' if direction == 'desc' else 'desc' %}
+    {%- else -%}
+      {% set nextdir = 'desc' if key in desc_first else 'asc' %}
+    {%- endif -%}
+    <a class="sort {% if sort == key %}on{% endif %}"
+       href="{{ url_for('index', q=search, state=state, library=library_id,
+                        missing='1' if only_missing else None,
+                        sort=key, dir=nextdir) }}">{{ label
+      }}{% if sort == key %}<span class="arrow">{{ '▲' if direction == 'asc' else '▼' }}</span>{% endif %}</a>
+  {% endmacro %}
   <thead><tr>
-    <th>{{ t('table.title') }}</th><th class="hide-xs">{{ t('table.library') }}</th>
-    <th class="hide-sm">{{ t('table.year') }}</th><th class="hide-sm">{{ t('table.tmdb') }}</th>
+    <th>{{ sortable('title', t('table.title')) }}</th>
+    <th class="hide-xs">{{ sortable('library', t('table.library')) }}</th>
+    <th class="hide-sm">{{ sortable('year', t('table.year')) }}</th>
+    <th class="hide-sm">{{ t('table.tmdb') }}</th>
     <th class="hide-sm">{{ t('table.trailer') }}</th>
-    <th>{{ t('table.lang') }}</th><th>{{ t('table.state') }}</th>
+    <th>{{ sortable('lang', t('table.lang')) }}</th>
+    <th>{{ sortable('state', t('table.state')) }}</th>
+    <th class="hide-sm">{{ sortable('changed', t('table.changed')) }}</th>
     <th>{{ t('table.actions') }}</th>
   </tr></thead>
   <tbody>
@@ -68,6 +88,7 @@
       <td class="mono hide-sm">{{ vid or (m['trailer'] and '?' or '-') }}</td>
       <td>{% if m['trailer_lang'] %}{{ m['trailer_lang']|upper }}{% else %}<span class="muted" title="{{ t('table.lang_unknown') }}">&ndash;</span>{% endif %}</td>
       <td><span class="state {{ m['state'] }}">{{ t('state.' + (m['state'] or 'pending')) }}</span></td>
+      <td class="small muted hide-sm mono">{{ m['last_changed']|ts }}</td>
       <td class="actions">
         {% if vid %}
           <a class="btn small icon" target="_blank" rel="noopener"
@@ -86,7 +107,7 @@
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="8" class="empty">{{ t('table.empty') }}</td></tr>
+    <tr><td colspan="9" class="empty">{{ t('table.empty') }}</td></tr>
   {% endfor %}
   </tbody>
 </table>
@@ -96,7 +117,7 @@
 <div class="pager">
   {% for p in range(1, pages + 1) %}
     {% if p == page %}<b>{{ p }}</b>
-    {% else %}<a href="{{ url_for('index', q=search, state=state, library=library_id, missing='1' if only_missing else None, page=p) }}">{{ p }}</a>{% endif %}
+    {% else %}<a href="{{ url_for('index', q=search, state=state, library=library_id, missing='1' if only_missing else None, sort=sort, dir=direction, page=p) }}">{{ p }}</a>{% endif %}
   {% endfor %}
 </div>
 {% endif %}

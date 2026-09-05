@@ -37,8 +37,9 @@ anime films looking for Japanese trailers, and one for series, side by side.
   quickly.
 - **Schedule** at a configurable interval, plus a run at startup.
 - **Webhook** for Emby, Jellyfin and Jellyseerr: new movie → trailer set at once.
-- **Web interface** with a movie list, search, filters, per-movie lookup and
-  manual editing of the link; every trailer can be previewed on YouTube first.
+- **Web interface** with a movie list, search, filters, sortable columns —
+  including *trailer set*, so the newest additions come first — per-movie lookup
+  and manual editing of the link; every trailer can be previewed on YouTube.
 - **Login** with username and password, webhook secured separately by a token.
 - **Bilingual** German/English, switchable in the header.
 - **Robust TMDB queries**: the `language` filter of the videos endpoint returns

@@ -58,6 +58,7 @@ STRINGS = {
         "table.lang_unknown": "noch nicht geprüft",
         "table.state": "Status",
         "table.checked": "Geprüft",
+        "table.changed": "Trailer gesetzt",
         "table.actions": "Aktionen",
         "table.empty": "Keine Filme gefunden. Zuerst die Bibliothek einlesen.",
 
@@ -286,6 +287,7 @@ STRINGS = {
         "table.lang_unknown": "not checked yet",
         "table.state": "State",
         "table.checked": "Checked",
+        "table.changed": "Trailer set",
         "table.actions": "Actions",
         "table.empty": "No movies yet. Scan the library first.",
 

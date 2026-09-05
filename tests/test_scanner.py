@@ -155,3 +155,41 @@ def test_stats_count_the_first_configured_language(tmp_path):
 
     assert db.stats("fr")["primary_lang"] >= 1
     assert db.stats("fr")["primary_lang_code"] == "fr"
+
+
+def test_sorting_puts_the_newest_trailers_first(tmp_path, library):
+    """'Newest first' has to mean newest, with the never-touched ones last."""
+    base = {"year": "2020", "tmdb": "1", "imdb": None, "trailer": "", "kind": "movie"}
+    stamps = {"old.nfo": 1000.0, "new.nfo": 3000.0, "middle.nfo": 2000.0}
+    for name in list(stamps) + ["never.nfo"]:
+        data = dict(base, title=name.replace(".nfo", ""))
+        db.upsert_movie(str(tmp_path / name), str(tmp_path), data, 1.0, 10,
+                        library_id=library["id"])
+    with db.connect() as con:
+        for name, stamp in stamps.items():
+            con.execute("UPDATE movies SET last_changed=? WHERE path=?",
+                        (stamp, str(tmp_path / name)))
+
+    rows, _ = db.list_movies(library_id=library["id"], sort="changed", direction="desc")
+    assert [r["title"] for r in rows] == ["new", "middle", "old", "never"]
+
+    rows, _ = db.list_movies(library_id=library["id"], sort="changed", direction="asc")
+    assert [r["title"] for r in rows][:3] == ["old", "middle", "new"]
+    assert rows[-1]["title"] == "never"        # empty stays at the end either way
+
+
+def test_sorting_by_title_is_the_default_and_case_insensitive(tmp_path, library):
+    base = {"year": "", "tmdb": None, "imdb": None, "trailer": "", "kind": "movie"}
+    for title in ("zebra", "Alpha", "beta"):
+        db.upsert_movie(str(tmp_path / (title + ".nfo")), str(tmp_path),
+                        dict(base, title=title), 1.0, 10, library_id=library["id"])
+    rows, _ = db.list_movies(library_id=library["id"])
+    assert [r["title"] for r in rows] == ["Alpha", "beta", "zebra"]
+
+
+def test_an_unknown_sort_key_cannot_reach_the_query():
+    """The value comes from the address bar and ends up in an ORDER BY."""
+    assert "title" in db.order_clause("title", "asc")
+    injected = db.order_clause("m.title; DROP TABLE movies", "asc")
+    assert "DROP" not in injected
+    assert injected == db.order_clause("title", "asc")

@@ -329,8 +329,33 @@ def pending_movies(recheck_seconds, overwrite_existing=False, limit=None,
                                  "library": library_id}).fetchall()
 
 
+# What the column headers may sort by. A whitelist, because the value comes
+# straight out of the address bar and goes into an ORDER BY.
+SORT_COLUMNS = {
+    "title": "m.title COLLATE NOCASE",
+    "library": "l.name COLLATE NOCASE",
+    "year": "m.year",
+    "lang": "m.trailer_lang",
+    "state": "m.state",
+    "changed": "m.last_changed",     # when we last wrote a trailer
+    "checked": "m.last_checked",     # when TMDB was last asked
+}
+# Columns that can be empty. Those rows belong at the end either way, otherwise
+# "newest first" starts with a screen full of movies that never got a trailer.
+SORT_NULLABLE = ("year", "lang", "changed", "checked")
+
+
+def order_clause(sort, direction):
+    column = SORT_COLUMNS.get(sort) or SORT_COLUMNS["title"]
+    heading = "DESC" if str(direction).lower() == "desc" else "ASC"
+    empty_last = ""
+    if sort in SORT_NULLABLE:
+        empty_last = "({} IS NULL OR {} = ''), ".format(column, column)
+    return "{}{} {}, m.title COLLATE NOCASE ASC".format(empty_last, column, heading)
+
+
 def list_movies(search=None, state=None, only_missing=False, limit=500, offset=0,
-                library_id=None):
+                library_id=None, sort="title", direction="asc"):
     where, params = [], {}
     if search:
         where.append("(m.title LIKE :s OR m.folder LIKE :s)")
@@ -350,8 +375,8 @@ def list_movies(search=None, state=None, only_missing=False, limit=500, offset=0
         rows = con.execute(
             "SELECT m.*, l.name AS library_name, l.kind AS library_kind "
             "FROM movies m LEFT JOIN libraries l ON l.id = m.library_id {} "
-            "ORDER BY m.title COLLATE NOCASE "
-            "LIMIT :limit OFFSET :offset".format(clause), params).fetchall()
+            "ORDER BY {} LIMIT :limit OFFSET :offset"
+            .format(clause, order_clause(sort, direction)), params).fetchall()
         total = con.execute(
             "SELECT COUNT(*) c FROM movies m "
             "LEFT JOIN libraries l ON l.id = m.library_id {}".format(clause),
