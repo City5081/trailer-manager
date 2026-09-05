@@ -32,6 +32,13 @@
   <label>{{ t('settings.webhook_wait') }}<input name="webhook_wait" value="{{ values.webhook_wait }}" size="6"></label>
   <p class="hint">{{ t('settings.webhook_wait_hint') }}</p>
 
+  <h2>{{ t('emby.title') }}</h2>
+  <p class="hint">{{ t('emby.hint') }}</p>
+  <label>{{ t('emby.url') }}<input name="emby_url" value="{{ values.emby_url }}" placeholder="http://192.168.1.10:8096" autocomplete="off"></label>
+  <label>{{ t('emby.api_key') }}<input name="emby_api_key" value="{{ values.emby_api_key }}" autocomplete="off"></label>
+  <p class="hint">{{ t('emby.api_key_hint') }}</p>
+  <label class="inline"><input type="checkbox" name="emby_refresh" {% if values.emby_refresh %}checked{% endif %}> {{ t('emby.enabled') }}</label>
+
   <h2>{{ t('settings.ui') }}</h2>
   <label>{{ t('settings.ui_language') }}
     <select name="ui_language">
@@ -44,6 +51,7 @@
   <div class="toolbar">
     <button class="primary" type="submit">{{ t('action.save') }}</button>
     <button formaction="{{ url_for('settings_test') }}" formmethod="post">{{ t('action.test') }}</button>
+    <button formaction="{{ url_for('settings_emby_test') }}" formmethod="post">{{ t('emby.test') }}</button>
   </div>
 </form>
 

@@ -68,6 +68,9 @@ DEFAULTS = {
     "scan_on_start": "1" if _bool("SCAN_ON_START", True) else "0",
     "recheck_days": str(_int("RECHECK_DAYS", 30)),
     "webhook_wait": str(_int("WEBHOOK_WAIT", 60)),
+    "emby_url": os.environ.get("EMBY_URL", ""),
+    "emby_api_key": os.environ.get("EMBY_API_KEY", ""),
+    "emby_refresh": "1" if _bool("EMBY_REFRESH", True) else "0",
     "ui_language": os.environ.get("UI_LANGUAGE", "de"),
     "overwrite_existing": "0",
 }

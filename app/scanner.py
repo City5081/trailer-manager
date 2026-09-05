@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import db
+import emby as emby_mod
 import nfo
 import tmdb
 
@@ -34,6 +35,8 @@ class Scanner:
                       "started": None, "trigger": None}
         self._stop = threading.Event()
         self._scheduler = None
+        self._emby = None
+        self._emby_settings = None
 
     # ------------------------------------------------------------------ helpers
     def setting_for(self, lib, key, default=None):
@@ -59,6 +62,38 @@ class Scanner:
         except (TypeError, ValueError):
             days = 30
         return days * 86400
+
+    def media_server(self):
+        """The Emby client, rebuilt when address or key change.
+
+        Kept on the scanner so its index of the library survives a whole run
+        instead of being fetched again for every trailer.
+        """
+        current = (self.get("emby_url", ""), self.get("emby_api_key", ""))
+        if self._emby is None or self._emby_settings != current:
+            self._emby = emby_mod.Emby(*current)
+            self._emby_settings = current
+        return self._emby
+
+    def notify_media_server(self, row, tmdb_id):
+        """Ask Emby to re-read one item. Never lets a failure reach the caller.
+
+        The trailer is already written at this point; a server that is off or
+        misconfigured must not turn a successful write into an error.
+        """
+        if not self._flag(None, "emby_refresh", "1"):
+            return False
+        server = self.media_server()
+        if not server.configured():
+            return False
+        try:
+            if server.refresh(tmdb_id):
+                return True
+            db.log("warn", "{} was not found on the media server (TMDB {}) - "
+                           "refresh skipped".format(row["title"], tmdb_id), "emby")
+        except emby_mod.EmbyError as e:
+            db.log("warn", "Refresh for {} failed: {}".format(row["title"], e), "emby")
+        return False
 
     def stop(self):
         self._stop.set()
@@ -230,6 +265,7 @@ class Scanner:
                        trailer=value, trailer_lang=best.get("lang"), written=True)
         db.log("ok", "{}: trailer [{}] {} written".format(
             row["title"], best.get("lang"), best["key"]), "auto")
+        self.notify_media_server(row, tmdb_id)
         return "ok", best["key"]
 
     def candidates_for(self, row):

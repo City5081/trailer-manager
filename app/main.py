@@ -21,6 +21,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import config
 import db
+import emby as emby_mod
 import i18n
 import nfo
 import scanner as scanner_mod
@@ -488,6 +489,7 @@ def movie_save():
                    trailer=value, trailer_lang=request.form.get("lang") or None,
                    written=True)
     db.log("ok", "{}: manually {}".format(row["title"], value or "removed"), "manual")
+    SCANNER.notify_media_server(row, row["tmdb_id"])
     flash(t("msg.saved") if value else t("msg.removed"), "ok")
     return redirect(url_for("movie_detail", path=path))
 
@@ -542,8 +544,10 @@ def status():
 @login_required
 def settings_page():
     keys_text = ["tmdb_api_key", "languages", "link_format", "scan_interval_hours",
-                 "recheck_days", "webhook_wait", "ui_language"]
-    keys_flag = ["keep_format", "backup", "lockdata", "scan_on_start", "overwrite_existing"]
+                 "recheck_days", "webhook_wait", "ui_language",
+                 "emby_url", "emby_api_key"]
+    keys_flag = ["keep_format", "backup", "lockdata", "scan_on_start",
+                 "overwrite_existing", "emby_refresh"]
     if request.method == "POST":
         for key in keys_text:
             db.set_setting(key, request.form.get(key, "").strip())
@@ -663,6 +667,23 @@ def settings_password():
         db.set_setting("web_password_hash", generate_password_hash(new))
         db.log("info", "Password changed", "auth")
         flash(t("settings.pw_saved"), "ok")
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/settings/emby-test", methods=["POST"])
+@login_required
+def settings_emby_test():
+    server = emby_mod.Emby(setting("emby_url", ""), setting("emby_api_key", ""))
+    if not server.configured():
+        flash(t("emby.err_missing"), "error")
+        return redirect(url_for("settings_page"))
+    try:
+        info = server.info()
+        count = len(server._build_index())
+        flash("{}: {} {} - {} {}".format(t("emby.test_ok"), info["name"], info["version"],
+                                         count, t("emby.entries_found")), "ok")
+    except emby_mod.EmbyError as e:
+        flash(str(e), "error")
     return redirect(url_for("settings_page"))
 
 

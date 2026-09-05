@@ -147,6 +147,8 @@ you need them.
 | `SCAN_ON_START` | run once when the container starts |
 | `RECHECK_DAYS` | retry movies without a hit after this many days |
 | `WEBHOOK_WAIT` | seconds to keep looking for a late NFO (default 60) |
+| `EMBY_URL`, `EMBY_API_KEY` | server to notify after a write |
+| `EMBY_REFRESH` | `false` disables the notification |
 | `UI_LANGUAGE` | `de` or `en` |
 | `WEBHOOK_TOKEN` | empty = generated on first start |
 | `AUTH_DISABLED` | `true` only when an auth proxy handles the login |
@@ -156,6 +158,26 @@ you need them.
 The published port and the mounted folders are plain values in
 `docker-compose.yml`. `MOVIES_DIR` only seeds the very first library; after that
 the folders come from the database.
+
+## Telling Emby about it
+
+Emby only reads a changed NFO on its next library scan — every twelve hours by
+default — so a trailer written now would sit unseen until then. Put the server
+address and an API key under *Settings → Notify Emby* and each written trailer
+is announced immediately, for that one item; no full library scan.
+
+The API key is created in Emby under *Settings → Advanced → API keys*. Use *Test
+Emby* to check the connection: it reports the server name, version and how many
+items were found.
+
+Items are matched by their TMDB id, not by path, because the server sees the
+library under its own mount (`/mnt/user/Movies`) while this container sees
+`/movies`. The refresh replaces nothing — images are left alone and no internet
+provider is asked — so it cannot undo anything you set by hand. If the server is
+down or the key is wrong, the trailer is still written and a warning goes to the
+log.
+
+Jellyfin speaks the same API and works with the same two fields.
 
 ## Webhook
 
@@ -258,6 +280,7 @@ app/
   scanner.py   scanning, automatic runs, schedule, webhook handling
   db.py        SQLite: libraries, entries, log, settings, runs
   tmdb.py      TMDB client with robust language handling
+  emby.py      tells Emby or Jellyfin to re-read a changed NFO
   nfo.py       reading and writing NFOs, link formats
   i18n.py      German/English translations
 docker/

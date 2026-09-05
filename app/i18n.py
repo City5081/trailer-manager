@@ -120,6 +120,22 @@ STRINGS = {
                                   "Film, nicht nur für den Trailer - Titel, "
                                   "Beschreibung und Bilder werden dann auch nicht mehr "
                                   "aktualisiert.",
+        "emby.title": "Emby benachrichtigen",
+        "emby.hint": "Emby liest geänderte NFO-Dateien erst beim nächsten "
+                     "Bibliotheks-Scan, standardmäßig alle 12 Stunden. Mit "
+                     "Adresse und API-Key sagen wir Emby nach jedem "
+                     "geschriebenen Trailer Bescheid, und zwar für genau diesen "
+                     "einen Film - kein Scan der ganzen Bibliothek.",
+        "emby.url": "Adresse von Emby oder Jellyfin",
+        "emby.api_key": "API-Key",
+        "emby.api_key_hint": "In Emby unter Einstellungen -> Erweitert -> "
+                             "API-Schlüssel anlegen. Der Schlüssel gilt "
+                             "serverweit, also nicht weitergeben.",
+        "emby.enabled": "nach dem Schreiben benachrichtigen",
+        "emby.test": "Emby testen",
+        "emby.test_ok": "Verbindung steht",
+        "emby.entries_found": "Einträge gefunden",
+        "emby.err_missing": "Bitte zuerst Adresse und API-Key eintragen.",
         "settings.title": "Einstellungen",
         "settings.tmdb": "TMDB",
         "settings.api_key": "API-Key (v3)",
@@ -343,6 +359,21 @@ STRINGS = {
                                   "fetching metadata for it. Careful: that covers the "
                                   "whole item, not just the trailer - title, plot and "
                                   "artwork stop being updated as well.",
+        "emby.title": "Notify Emby",
+        "emby.hint": "Emby only reads a changed NFO on its next library scan, "
+                     "every twelve hours by default. With an address and an API "
+                     "key we tell Emby about each trailer as it is written, for "
+                     "that one item - no full library scan.",
+        "emby.url": "Address of Emby or Jellyfin",
+        "emby.api_key": "API key",
+        "emby.api_key_hint": "Create one in Emby under Settings -> Advanced -> "
+                             "API keys. It is valid server wide, so keep it to "
+                             "yourself.",
+        "emby.enabled": "notify after writing",
+        "emby.test": "Test Emby",
+        "emby.test_ok": "Connection works",
+        "emby.entries_found": "entries found",
+        "emby.err_missing": "Please enter an address and an API key first.",
         "settings.title": "Settings",
         "settings.tmdb": "TMDB",
         "settings.api_key": "API key (v3)",
