@@ -73,7 +73,7 @@
         <td class="mono small break">{{ lib['path'] }}</td>
         <td>{{ counts.get(lib['id'], 0) }}</td>
         <td class="actions">
-          <a class="btn small" href="{{ url_for('library_edit', lib_id=lib['id']) }}">{{ t('library.edit') }}</a>
+          <a class="btn small" href="{{ url_for('library_edit', lib_id=lib['id']) }}">{{ t('action.edit') }}</a>
           <form method="post" action="{{ url_for('library_scan', lib_id=lib['id']) }}">
             <input type="hidden" name="csrf" value="{{ csrf_token() }}">
             <button class="small" {% if busy %}disabled{% endif %}>{{ t('library.scan') }}</button>
@@ -123,7 +123,7 @@
     <tbody>
     {% for target in notifiers %}
       <tr {% if not target['enabled'] %}class="muted"{% endif %}>
-        <td><b>{{ target['service'] }}</b></td>
+        <td><a href="{{ url_for('notifier_edit', notifier_id=target['id']) }}"><b>{{ target['service'] }}</b></a></td>
         <td class="mono small break">{{ target['url'] }}</td>
         <td>
           <form method="post" action="{{ url_for('notifier_toggle', notifier_id=target['id']) }}">
@@ -132,6 +132,7 @@
           </form>
         </td>
         <td class="actions">
+          <a class="btn small" href="{{ url_for('notifier_edit', notifier_id=target['id']) }}">{{ t('action.edit') }}</a>
           <form method="post" action="{{ url_for('notifier_test', notifier_id=target['id']) }}">
             <input type="hidden" name="csrf" value="{{ csrf_token() }}">
             <button class="small">{{ t('notify.test') }}</button>

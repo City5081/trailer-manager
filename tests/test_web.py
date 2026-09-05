@@ -81,3 +81,35 @@ def test_security_headers_are_set(client):
 def test_an_unknown_movie_gives_404(client):
     sign_in(client)
     assert client.get("/movie?path=/does/not/exist.nfo").status_code == 404
+
+
+def test_buttons_return_to_the_page_they_were_pressed_on(client):
+    """Behind a reverse proxy the browser reports the outside address while the
+    application sees its own - comparing the two sent every button to the start
+    page."""
+    sign_in(client)
+    page = client.get("/settings").get_data(as_text=True)
+    csrf = token_from(page)
+
+    response = client.post("/scan", data={"csrf": csrf},
+                           headers={"Referer": "https://schnuckshome.net/settings"})
+    assert response.headers["Location"] == "/settings"
+
+
+def test_the_referrer_can_never_send_anyone_off_site(client):
+    """Only the path is kept, so a foreign host cannot become a redirect."""
+    sign_in(client)
+    page = client.get("/settings").get_data(as_text=True)
+    csrf = token_from(page)
+
+    response = client.post("/scan", data={"csrf": csrf},
+                           headers={"Referer": "https://evil.example/settings?x=1"})
+    assert response.headers["Location"] == "/settings?x=1"
+    assert "evil.example" not in response.headers["Location"]
+
+
+def test_a_missing_referrer_falls_back_to_the_start_page(client):
+    sign_in(client)
+    page = client.get("/").get_data(as_text=True)
+    response = client.post("/scan", data={"csrf": token_from(page)})
+    assert response.headers["Location"] == "/"

@@ -212,3 +212,60 @@ def test_a_broken_service_is_only_logged(monkeypatch, database, target):
     assert scanner_with().notify("Trailer set", "Mayday", when="on_new") == 0
     messages = [r["message"] for r in database.recent_log(10) if r["source"] == "notify"]
     assert any("failed" in m for m in messages)
+
+
+# --------------------------------------------------------- editing a target
+def csrf_from(html):
+    import re
+    match = re.search(r'name="csrf" value="([^"]+)"', html)
+    return match.group(1) if match else None
+
+
+def sign_in(client):
+    import config
+    page = client.get("/login").get_data(as_text=True)
+    client.post("/login", data={"username": config.WEB_USERNAME,
+                                "password": config.WEB_PASSWORD,
+                                "csrf": csrf_from(page)})
+
+
+def test_a_target_can_be_edited(client, database, target):
+    sign_in(client)
+    page = client.get("/notifier/{}".format(target)).get_data(as_text=True)
+    assert "gotify" in page
+
+    response = client.post("/notifier/{}".format(target), data={
+        "csrf": csrf_from(page), "service": "ntfy",
+        "url": "https://ntfy.sh/changed", "token": "new-token", "enabled": "on"})
+    assert response.status_code == 302
+
+    changed = database.get_notifier(target)
+    assert changed["service"] == "ntfy"
+    assert changed["url"] == "https://ntfy.sh/changed"
+    assert changed["token"] == "new-token"
+    assert changed["enabled"] == 1
+
+
+def test_editing_refuses_an_empty_address(client, database, target):
+    sign_in(client)
+    page = client.get("/notifier/{}".format(target)).get_data(as_text=True)
+    response = client.post("/notifier/{}".format(target), data={
+        "csrf": csrf_from(page), "service": "gotify", "url": "   "})
+    assert response.status_code == 200                      # stays on the form
+    assert database.get_notifier(target)["url"] == "https://gotify.example"
+
+
+def test_toggling_stays_on_the_settings_page(client, database, target):
+    """It used to land on the start page, losing your place every time."""
+    sign_in(client)
+    page = client.get("/settings").get_data(as_text=True)
+    response = client.post("/notifier/{}/toggle".format(target),
+                           data={"csrf": csrf_from(page)},
+                           headers={"Referer": "https://schnuckshome.net/settings"})
+    assert response.headers["Location"].endswith("/settings")
+    assert database.get_notifier(target)["enabled"] == 0
+
+
+def test_an_unknown_target_gives_404(client):
+    sign_in(client)
+    assert client.get("/notifier/999999").status_code == 404

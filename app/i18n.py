@@ -48,6 +48,7 @@ STRINGS = {
         "action.filter": "Filtern",
         "action.reset": "Zurücksetzen",
         "action.change_password": "Passwort ändern",
+        "action.edit": "Bearbeiten",
 
         "table.title": "Titel",
         "table.year": "Jahr",
@@ -207,7 +208,7 @@ STRINGS = {
                            "angerührt.",
         "library.delete_confirm": "Diese Bibliothek und ihre Einträge aus der "
                                   "Datenbank entfernen? Die Dateien bleiben unberührt.",
-        "library.edit": "Bearbeiten",
+
         "library.scan": "Nur diese prüfen",
         "library.overrides": "Abweichende Einstellungen",
         "library.inherit": "global übernehmen",
@@ -283,6 +284,7 @@ STRINGS = {
         "action.filter": "Filter",
         "action.reset": "Reset",
         "action.change_password": "Change password",
+        "action.edit": "Edit",
 
         "table.title": "Title",
         "table.year": "Year",
@@ -436,7 +438,7 @@ STRINGS = {
         "library.deleted": "Library removed. The NFO files themselves were not touched.",
         "library.delete_confirm": "Remove this library and its entries from the "
                                   "database? The files stay untouched.",
-        "library.edit": "Edit",
+
         "library.scan": "Check this one only",
         "library.overrides": "Settings that differ",
         "library.inherit": "use the global value",

@@ -13,6 +13,7 @@ import threading
 import time
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 from flask import (Flask, abort, flash, jsonify, redirect, render_template,
                    request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -186,10 +187,18 @@ def _safe_next(target):
 
 
 def _back():
-    """Back to the previous page - but only if it is ours."""
-    referrer = request.referrer or ""
-    if referrer.startswith(request.host_url):
-        return referrer
+    """Back to the previous page.
+
+    Only the path of the referrer is used, never its host, which does two
+    things at once: it cannot send anyone to another site, and it survives a
+    reverse proxy. Comparing against request.host_url used to fail there - the
+    browser reports https://example.com/settings while the application sees
+    itself as http://container:8081/, so every button landed on the start page.
+    """
+    parts = urlsplit(request.referrer or "")
+    target = parts.path + (("?" + parts.query) if parts.query else "")
+    if target.startswith("/") and not target.startswith("//"):
+        return target
     return url_for("index")
 
 
@@ -708,7 +717,35 @@ def notifier_toggle(notifier_id):
     if not target:
         abort(404)
     db.update_notifier(notifier_id, enabled=0 if target["enabled"] else 1)
-    return redirect(_back())
+    # Straight back to the settings, never to the start page.
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/notifier/<int:notifier_id>", methods=["GET", "POST"])
+@login_required
+def notifier_edit(notifier_id):
+    target = db.get_notifier(notifier_id)
+    if not target:
+        abort(404)
+    if request.method == "POST":
+        service = request.form.get("service", "")
+        url = request.form.get("url", "").strip()
+        if service not in notify_mod.SERVICES:
+            flash(t("notify.err_service"), "error")
+        elif not url:
+            flash(t("notify.err_url"), "error")
+        else:
+            db.update_notifier(notifier_id, service=service, url=url,
+                               token=request.form.get("token", "").strip(),
+                               enabled=1 if request.form.get("enabled") else 0)
+            db.log("info", "Notification target changed ({})".format(service), "settings")
+            flash(t("settings.saved"), "ok")
+            return redirect(url_for("settings_page"))
+        target = db.get_notifier(notifier_id)
+    return render_template("notifier.html", target=target,
+                           services=sorted(notify_mod.SERVICES),
+                           examples={name: notify_mod.example_url(name)
+                                     for name in notify_mod.SERVICES})
 
 
 @app.route("/notifier/<int:notifier_id>/delete", methods=["POST"])
