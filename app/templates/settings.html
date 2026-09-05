@@ -41,12 +41,6 @@
   <p class="hint"><b>{{ t('emby.last_poll') }}:</b>
      <span class="mono">{{ last_poll or t('emby.never') }}</span></p>
 
-  <h2>{{ t('notify.title') }}</h2>
-  <p class="hint">{{ t('notify.hint') }}</p>
-  <label class="inline"><input type="checkbox" name="notify_on_new" {% if values.notify_on_new %}checked{% endif %}> {{ t('notify.on_new') }}</label>
-  <label class="inline"><input type="checkbox" name="notify_on_run" {% if values.notify_on_run %}checked{% endif %}> {{ t('notify.on_run') }}</label>
-  <label class="inline"><input type="checkbox" name="notify_on_error" {% if values.notify_on_error %}checked{% endif %}> {{ t('notify.on_error') }}</label>
-
   <h2>{{ t('settings.ui') }}</h2>
   <label>{{ t('settings.ui_language') }}
     <select name="ui_language">
@@ -110,8 +104,18 @@
 </div>
 
 <div class="card">
+  <h2>{{ t('notify.title') }}</h2>
+  <form method="post" action="{{ url_for('settings_notifications') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label class="inline"><input type="checkbox" name="notify_on_new" {% if values.notify_on_new %}checked{% endif %}> {{ t('notify.on_new') }}</label>
+    <label class="inline"><input type="checkbox" name="notify_on_run" {% if values.notify_on_run %}checked{% endif %}> {{ t('notify.on_run') }}</label>
+    <label class="inline"><input type="checkbox" name="notify_on_error" {% if values.notify_on_error %}checked{% endif %}> {{ t('notify.on_error') }}</label>
+    <div class="toolbar">
+      <button class="primary" type="submit">{{ t('action.save') }}</button>
+    </div>
+  </form>
+
   <h2>{{ t('notify.targets') }}</h2>
-  <p class="hint">{{ t('notify.targets_hint') }}</p>
   <div class="tablewrap">
   <table>
     <thead><tr>

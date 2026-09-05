@@ -546,8 +546,7 @@ def settings_page():
                  "recheck_days", "nfo_wait", "emby_poll_minutes", "ui_language",
                  "emby_url", "emby_api_key"]
     keys_flag = ["keep_format", "backup", "lockdata", "scan_on_start",
-                 "overwrite_existing",
-                 "notify_on_new", "notify_on_run", "notify_on_error"]
+                 "overwrite_existing"]
     if request.method == "POST":
         for key in keys_text:
             db.set_setting(key, request.form.get(key, "").strip())
@@ -560,6 +559,7 @@ def settings_page():
 
     values = {key: setting(key, "") for key in keys_text}
     values.update({key: flag(key) for key in keys_flag})
+    values.update({key: flag(key) for key in NOTIFY_EVENTS})
     return render_template("settings.html", values=values,
                            runs=db.last_runs(5), libraries=db.list_libraries(),
                            counts=db.library_counts(), kinds=db.KINDS,
@@ -668,6 +668,20 @@ def settings_password():
         db.set_setting("web_password_hash", generate_password_hash(new))
         db.log("info", "Password changed", "auth")
         flash(t("settings.pw_saved"), "ok")
+    return redirect(url_for("settings_page"))
+
+
+NOTIFY_EVENTS = ("notify_on_new", "notify_on_run", "notify_on_error")
+
+
+@app.route("/settings/notifications", methods=["POST"])
+@login_required
+def settings_notifications():
+    """Only the three event switches - the targets have their own forms."""
+    for key in NOTIFY_EVENTS:
+        db.set_setting(key, "1" if request.form.get(key) else "0")
+    db.log("info", "Notification settings changed", "settings")
+    flash(t("settings.saved"), "ok")
     return redirect(url_for("settings_page"))
 
 

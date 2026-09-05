@@ -141,7 +141,6 @@ STRINGS = {
         "emby.entries_found": "Einträge gefunden",
         "emby.err_missing": "Bitte zuerst Adresse und API-Key eintragen.",
         "notify.title": "Benachrichtigungen",
-        "notify.hint": "Was gemeldet werden soll. Die Ziele stehen weiter unten.",
         "notify.service": "Dienst",
         "notify.off": "aus",
         "notify.url": "Adresse",
@@ -154,9 +153,6 @@ STRINGS = {
         "notify.on_run": "Zusammenfassung nach jedem Automatiklauf",
         "notify.on_error": "bei Fehlern",
         "notify.targets": "Ziele",
-        "notify.targets_hint": "Mehrere Ziele gleichzeitig sind möglich. Jedes lässt "
-                               "sich einzeln abschalten, ohne seine Einstellungen zu "
-                               "verlieren.",
         "notify.add": "Ziel hinzufügen",
         "notify.added": "Ziel hinzugefügt.",
         "notify.deleted": "Ziel entfernt.",
@@ -380,7 +376,6 @@ STRINGS = {
         "emby.entries_found": "entries found",
         "emby.err_missing": "Please enter an address and an API key first.",
         "notify.title": "Notifications",
-        "notify.hint": "What should be reported. The targets are further down.",
         "notify.service": "Service",
         "notify.off": "off",
         "notify.url": "Address",
@@ -393,8 +388,6 @@ STRINGS = {
         "notify.on_run": "summary after every automatic run",
         "notify.on_error": "on errors",
         "notify.targets": "Targets",
-        "notify.targets_hint": "Several targets can be active at once. Each can be "
-                               "switched off on its own without losing its settings.",
         "notify.add": "Add target",
         "notify.added": "Target added.",
         "notify.deleted": "Target removed.",
