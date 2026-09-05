@@ -293,3 +293,26 @@ def test_a_rejected_ntfy_topic_points_at_the_token(monkeypatch):
     with pytest.raises(notify_mod.NotifyError) as error:
         notify_mod.send("ntfy", "https://ntfy.sh/private", "", "a", "b")
     assert "access token" in str(error.value)
+
+
+def test_a_failure_names_the_address_it_used_without_the_token(monkeypatch):
+    """A service that answers by hand but not from here is nearly always a
+    different address - so the message has to say which one was used."""
+    from urllib.error import HTTPError
+    recorder(monkeypatch, HTTPError("https://x", 403, "Forbidden", {}, None))
+
+    with pytest.raises(notify_mod.NotifyError) as error:
+        notify_mod.send("gotify", "https://gotify.example", "AsecretToken", "a", "b")
+
+    text = str(error.value)
+    assert "https://gotify.example/message" in text
+    assert "AsecretToken" not in text          # the token must not leak into the UI
+
+
+def test_the_address_is_named_for_other_errors_too(monkeypatch):
+    from urllib.error import HTTPError
+    recorder(monkeypatch, HTTPError("https://x", 404, "Not Found", {}, None))
+    with pytest.raises(notify_mod.NotifyError) as error:
+        notify_mod.send("gotify", "https://gotify.example/sub", "Atok", "a", "b")
+    assert "https://gotify.example/sub/message" in str(error.value)
+    assert "Atok" not in str(error.value)

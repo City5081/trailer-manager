@@ -13,7 +13,7 @@ individually.
 
 import json
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 TIMEOUT = 15
@@ -70,6 +70,18 @@ SERVICES = {
 }
 
 
+def _safe_target(target):
+    """The address that was used, with any token removed.
+
+    Worth showing when something fails: a service that answers by hand but not
+    from here is almost always a different address than the one you tested.
+    """
+    parts = urlsplit(target)
+    query = "&".join(pair for pair in parts.query.split("&")
+                     if pair and not pair.lower().startswith("token="))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, query, ""))
+
+
 def _rejection_hint(service, token):
     """Why a service might be refusing this token.
 
@@ -109,10 +121,12 @@ def send(service, url, token, title, message, priority=NORMAL):
             return response.status
     except HTTPError as e:
         if e.code in (401, 403):
-            raise NotifyError("The service rejects the token (HTTP {}).{}"
-                              .format(e.code, _rejection_hint(service, token))) from e
-        raise NotifyError("The service answered with HTTP {} - {}"
-                          .format(e.code, e.reason)) from e
+            raise NotifyError("{} rejects the token (HTTP {}).{} Address used: {}"
+                              .format(service, e.code, _rejection_hint(service, token),
+                                      _safe_target(target))) from e
+        raise NotifyError("{} answered with HTTP {} - {}. Address used: {}"
+                          .format(service, e.code, e.reason,
+                                  _safe_target(target))) from e
     except URLError as e:
         raise NotifyError("Cannot reach {} ({})".format(url, e.reason)) from e
 
