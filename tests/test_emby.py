@@ -104,12 +104,14 @@ def test_an_unknown_movie_is_reported_not_refreshed(monkeypatch):
 
 
 def test_a_movie_added_later_is_found_on_a_rebuild(monkeypatch):
-    """A film Emby learned about after the index was built still gets refreshed."""
+    """A film Emby learned about after the index was built still gets refreshed,
+    once the index is old enough to be worth fetching again."""
     later = {"Items": [{"Id": "new1", "Name": "Fresh", "ProviderIds": {"Tmdb": "777"}}]}
     calls = recorder(monkeypatch, [LIBRARY, None, later, None])
     server = emby_mod.Emby("http://emby", "k")
 
     assert server.refresh("550") is True          # builds the index
+    server._index_time -= emby_mod.MISS_REBUILD_AFTER + 1
     assert server.refresh("777") is True          # misses, rebuilds, finds it
     assert [c["method"] for c in calls] == ["GET", "POST", "GET", "POST"]
 
@@ -341,3 +343,26 @@ def test_real_timestamps_sort_the_way_we_compare_them(database):
     newest, older = (i["DateCreated"] for i in real_items())
     assert newest > older
     assert max(i["DateCreated"] for i in real_items()) == newest
+
+
+def test_unknown_items_do_not_refetch_the_library_every_time(monkeypatch):
+    """A film Emby does not have must not cost one full library download per
+    lookup - with a few hundred of them that is hundreds of megabytes."""
+    calls = recorder(monkeypatch, [LIBRARY])
+    server = emby_mod.Emby("http://emby", "k")
+
+    for _ in range(20):
+        assert server.refresh("does-not-exist") is False
+
+    assert len(calls) == 1, "fetched the library {} times".format(len(calls))
+
+
+def test_a_stale_index_is_still_refreshed_on_a_miss(monkeypatch):
+    later = {"Items": [{"Id": "new1", "Name": "Fresh", "ProviderIds": {"Tmdb": "777"}}]}
+    calls = recorder(monkeypatch, [LIBRARY, later, None])
+    server = emby_mod.Emby("http://emby", "k")
+
+    assert server.refresh("777") is False            # builds, still unknown
+    server._index_time -= emby_mod.MISS_REBUILD_AFTER + 1    # let it age
+    assert server.refresh("777") is True             # rebuild finds it
+    assert [c["method"] for c in calls] == ["GET", "GET", "POST"]

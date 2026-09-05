@@ -22,6 +22,11 @@ from urllib.request import Request, urlopen
 # stays usable for a while. A miss rebuilds it once, so a brand new item is
 # still found.
 INDEX_TTL = 600
+# A film this container knows but the server does not - Emby has not scanned it
+# yet, or it lives outside the server's libraries - would otherwise refetch the
+# whole library on every single lookup. One rebuild per minute is enough to pick
+# up something genuinely new.
+MISS_REBUILD_AFTER = 60
 TIMEOUT = 20
 
 
@@ -121,15 +126,15 @@ class Emby:
             return None
         key = ("tmdb", str(tmdb_id))
 
-        just_built = False
-        if not self._index or time.time() - self._index_time >= INDEX_TTL:
+        age = time.time() - self._index_time
+        if not self._index or age >= INDEX_TTL:
             self._build_index()
-            just_built = True
+            age = 0.0
 
         found = self._index.get(key)
-        if found is None and not just_built:
-            # The item may have been added since the index was built. Only
-            # worth another look if the index is not the one we just fetched.
+        if found is None and age >= MISS_REBUILD_AFTER:
+            # The item may have been added since the index was built - but only
+            # look again if the index has had time to go out of date.
             self._build_index()
             found = self._index.get(key)
         return found
