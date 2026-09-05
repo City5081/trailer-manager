@@ -150,9 +150,8 @@ you need them.
 | `NFO_WAIT` | seconds to keep looking for a late NFO (default 60) |
 | `EMBY_URL`, `EMBY_API_KEY` | media server to watch and notify |
 | `EMBY_POLL_MINUTES` | how often to ask for new items (`0` = off) |
-| `EMBY_REFRESH` | `false` disables the notification after a write |
-| `NOTIFY_SERVICE` | `gotify`, `ntfy`, `discord` or `webhook` |
-| `NOTIFY_URL`, `NOTIFY_TOKEN` | where to send and how to authenticate |
+| `NOTIFY_SERVICE` | first target's service: `gotify`, `ntfy`, `discord`, `webhook` |
+| `NOTIFY_URL`, `NOTIFY_TOKEN` | first target's address and token; more are added in the interface |
 | `NOTIFY_ON_NEW`, `NOTIFY_ON_RUN`, `NOTIFY_ON_ERROR` | which events to announce |
 | `UI_LANGUAGE` | `de` or `en` |
 | `AUTH_DISABLED` | `true` only when an auth proxy handles the login |
@@ -184,8 +183,10 @@ yet the folder is checked again over the next minute (*Settings → Wait for the
 NFO*, `0` turns it off).
 
 **Written trailers.** Emby only reads a changed NFO on its next library scan,
-every twelve hours by default. With *notify after writing* enabled each trailer
-is announced as it is written, for that one item. The refresh replaces
+every twelve hours by default, so each written trailer is announced as it is
+written, for that one item. This always happens when a server is configured —
+writing a trailer and then leaving the server unaware of it has no upside. The
+refresh replaces
 nothing — images are left alone and no internet provider is asked — so it cannot
 undo anything set by hand. If the server is down or the key is wrong, the trailer
 is still written and a warning goes to the log.
@@ -195,9 +196,11 @@ connection, and gives better data than parsing notification payloads.
 
 ## Notifications
 
-*Settings → Notifications* sends messages to **Gotify**, **ntfy**, **Discord** or
-any plain webhook. Pick the service, give it an address and — where the service
-wants one — a token:
+*Settings → Notifications* chooses what gets reported; *Targets* is where the
+services go. Several targets can be active at once — Gotify on the phone and a
+Discord channel, say — and each can be switched off on its own without losing
+its settings. Add one by picking the service, an address and, where the service
+wants one, a token:
 
 | Service | Address | Token |
 |---|---|---|
@@ -207,11 +210,12 @@ wants one — a token:
 | webhook | any URL, receives JSON | optional, sent as a bearer |
 
 Three things can be announced, each on its own: a newly added item getting its
-trailer, a summary after each automatic run, and errors.
+trailer, a summary after each automatic run, and errors. Individual messages are
+only sent for items the media server reported as new, so a run across a whole
+library reports once rather than several hundred times.
 
-Individual messages are only sent for items the media server reported as new. A
-run across a whole library writes hundreds of trailers and still reports once,
-as a summary — hundreds of phone alerts would be worse than none.
+One unreachable target never costs the message on the others, and never affects
+the trailer — it is already written by then.
 
 **Adding another service** is one function in `app/notify.py`: it turns a message
 into a URL, headers and a body, and gets listed in `SERVICES`. Nothing else in

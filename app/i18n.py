@@ -125,10 +125,6 @@ STRINGS = {
                                   "zu finden - deshalb wird mehrfach nachgesehen. "
                                   "0 schaltet das Warten ab.",
         "emby.poll": "Emby nach neuen Filmen fragen (Minuten, 0 = aus)",
-        "emby.poll_hint": "Statt darauf zu warten, dass Emby uns etwas meldet, fragen "
-                          "wir nach: Was ist seit dem letzten Mal dazugekommen? Das "
-                          "ist eine einzige Anfrage und ersetzt den frueheren Webhook - "
-                          "in Emby muss dafuer nichts eingerichtet werden.",
         "emby.last_poll": "Zuletzt abgefragt",
         "emby.never": "noch nicht abgefragt",
         "emby.title": "Emby",
@@ -140,19 +136,12 @@ STRINGS = {
         "emby.api_key_hint": "In Emby unter Einstellungen -> Erweitert -> "
                              "API-Schlüssel anlegen. Der Schlüssel gilt "
                              "serverweit, also nicht weitergeben.",
-        "emby.enabled": "nach dem Schreiben benachrichtigen",
-        "emby.refresh_hint": "Emby liest geänderte NFO-Dateien sonst erst beim "
-                             "nächsten Bibliotheks-Scan, standardmäßig alle 12 "
-                             "Stunden.",
         "emby.test": "Emby testen",
         "emby.test_ok": "Verbindung steht",
         "emby.entries_found": "Einträge gefunden",
         "emby.err_missing": "Bitte zuerst Adresse und API-Key eintragen.",
         "notify.title": "Benachrichtigungen",
-        "notify.hint": "Meldungen an Gotify, ntfy, Discord oder einen beliebigen "
-                       "Webhook. Alle vier sind im Kern dasselbe - etwas an eine "
-                       "URL schicken -, weitere Dienste sind entsprechend leicht "
-                       "zu ergänzen.",
+        "notify.hint": "Was gemeldet werden soll. Die Ziele stehen weiter unten.",
         "notify.service": "Dienst",
         "notify.off": "aus",
         "notify.url": "Adresse",
@@ -164,11 +153,17 @@ STRINGS = {
         "notify.on_new": "wenn ein neu hinzugefügter Film einen Trailer bekommt",
         "notify.on_run": "Zusammenfassung nach jedem Automatiklauf",
         "notify.on_error": "bei Fehlern",
-        "notify.volume_hint": "Einzelmeldungen gibt es nur für Filme, die Emby neu "
-                              "gemeldet hat - ein Durchlauf über die ganze Bibliothek "
-                              "schreibt hunderte Trailer und meldet sich trotzdem nur "
-                              "einmal mit einer Zusammenfassung.",
-        "notify.test": "Benachrichtigung testen",
+        "notify.targets": "Ziele",
+        "notify.targets_hint": "Mehrere Ziele gleichzeitig sind möglich. Jedes lässt "
+                               "sich einzeln abschalten, ohne seine Einstellungen zu "
+                               "verlieren.",
+        "notify.add": "Ziel hinzufügen",
+        "notify.added": "Ziel hinzugefügt.",
+        "notify.deleted": "Ziel entfernt.",
+        "notify.delete_confirm": "Dieses Ziel entfernen?",
+        "notify.none": "Noch kein Ziel eingetragen.",
+        "notify.err_url": "Bitte eine Adresse eintragen.",
+        "notify.test": "Testen",
         "notify.test_ok": "Benachrichtigung verschickt.",
         "notify.test_title": "Trailer Manager",
         "notify.test_body": "Test - wenn du das liest, funktioniert es.",
@@ -369,10 +364,6 @@ STRINGS = {
                                   "find, so we look again a few times. 0 turns the "
                                   "waiting off.",
         "emby.poll": "Ask Emby for new items every (minutes, 0 = off)",
-        "emby.poll_hint": "Instead of waiting for Emby to tell us something, we ask: "
-                          "what has been added since last time? That is a single "
-                          "request and replaces the former webhook - nothing needs to "
-                          "be set up inside Emby.",
         "emby.last_poll": "Last asked",
         "emby.never": "not asked yet",
         "emby.title": "Emby",
@@ -384,17 +375,12 @@ STRINGS = {
         "emby.api_key_hint": "Create one in Emby under Settings -> Advanced -> "
                              "API keys. It is valid server wide, so keep it to "
                              "yourself.",
-        "emby.enabled": "notify after writing",
-        "emby.refresh_hint": "Otherwise Emby only reads a changed NFO on its next "
-                             "library scan, every twelve hours by default.",
         "emby.test": "Test Emby",
         "emby.test_ok": "Connection works",
         "emby.entries_found": "entries found",
         "emby.err_missing": "Please enter an address and an API key first.",
         "notify.title": "Notifications",
-        "notify.hint": "Messages to Gotify, ntfy, Discord or any plain webhook. All "
-                       "four are the same thing underneath - POST something to a "
-                       "URL - so further services are easy to add.",
+        "notify.hint": "What should be reported. The targets are further down.",
         "notify.service": "Service",
         "notify.off": "off",
         "notify.url": "Address",
@@ -406,11 +392,16 @@ STRINGS = {
         "notify.on_new": "when a newly added item gets its trailer",
         "notify.on_run": "summary after every automatic run",
         "notify.on_error": "on errors",
-        "notify.volume_hint": "Individual messages are only sent for items Emby "
-                              "reported as new - a run across the whole library writes "
-                              "hundreds of trailers and still reports once, as a "
-                              "summary.",
-        "notify.test": "Test notification",
+        "notify.targets": "Targets",
+        "notify.targets_hint": "Several targets can be active at once. Each can be "
+                               "switched off on its own without losing its settings.",
+        "notify.add": "Add target",
+        "notify.added": "Target added.",
+        "notify.deleted": "Target removed.",
+        "notify.delete_confirm": "Remove this target?",
+        "notify.none": "No target configured yet.",
+        "notify.err_url": "Please enter an address.",
+        "notify.test": "Test",
         "notify.test_ok": "Notification sent.",
         "notify.test_title": "Trailer Manager",
         "notify.test_body": "Test - if you can read this, it works.",

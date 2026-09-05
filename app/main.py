@@ -544,10 +544,9 @@ def status():
 def settings_page():
     keys_text = ["tmdb_api_key", "languages", "link_format", "scan_interval_hours",
                  "recheck_days", "nfo_wait", "emby_poll_minutes", "ui_language",
-                 "emby_url", "emby_api_key",
-                 "notify_service", "notify_url", "notify_token"]
+                 "emby_url", "emby_api_key"]
     keys_flag = ["keep_format", "backup", "lockdata", "scan_on_start",
-                 "overwrite_existing", "emby_refresh",
+                 "overwrite_existing",
                  "notify_on_new", "notify_on_run", "notify_on_error"]
     if request.method == "POST":
         for key in keys_text:
@@ -567,6 +566,7 @@ def settings_page():
                            notify_services=sorted(notify_mod.SERVICES),
                            notify_examples={name: notify_mod.example_url(name)
                                             for name in notify_mod.SERVICES},
+                           notifiers=db.list_notifiers(),
                            last_poll=db.get_setting("emby_last_poll") or "")
 
 
@@ -671,19 +671,54 @@ def settings_password():
     return redirect(url_for("settings_page"))
 
 
-@app.route("/settings/notify-test", methods=["POST"])
+@app.route("/notifier/add", methods=["POST"])
 @login_required
-def settings_notify_test():
-    service = (setting("notify_service", "") or "").strip()
-    if not service:
+def notifier_add():
+    service = request.form.get("service", "")
+    url = request.form.get("url", "").strip()
+    if service not in notify_mod.SERVICES:
         flash(t("notify.err_service"), "error")
-        return redirect(url_for("settings_page"))
+    elif not url:
+        flash(t("notify.err_url"), "error")
+    else:
+        db.add_notifier(service, url, request.form.get("token", ""))
+        db.log("info", "Notification target added ({})".format(service), "settings")
+        flash(t("notify.added"), "ok")
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/notifier/<int:notifier_id>/toggle", methods=["POST"])
+@login_required
+def notifier_toggle(notifier_id):
+    target = db.get_notifier(notifier_id)
+    if not target:
+        abort(404)
+    db.update_notifier(notifier_id, enabled=0 if target["enabled"] else 1)
+    return redirect(_back())
+
+
+@app.route("/notifier/<int:notifier_id>/delete", methods=["POST"])
+@login_required
+def notifier_delete(notifier_id):
+    if not db.get_notifier(notifier_id):
+        abort(404)
+    db.delete_notifier(notifier_id)
+    flash(t("notify.deleted"), "ok")
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/notifier/<int:notifier_id>/test", methods=["POST"])
+@login_required
+def notifier_test(notifier_id):
+    target = db.get_notifier(notifier_id)
+    if not target:
+        abort(404)
     try:
-        notify_mod.send(service, setting("notify_url", ""), setting("notify_token", ""),
+        notify_mod.send(target["service"], target["url"], target["token"],
                         t("notify.test_title"), t("notify.test_body"))
-        flash(t("notify.test_ok"), "ok")
+        flash("{}: {}".format(target["service"], t("notify.test_ok")), "ok")
     except notify_mod.NotifyError as e:
-        flash(str(e), "error")
+        flash("{}: {}".format(target["service"], e), "error")
     return redirect(url_for("settings_page"))
 
 
@@ -754,6 +789,16 @@ def create_app():
     for key, value in config.DEFAULTS.items():
         if db.get_setting(key) is None:
             db.set_setting(key, value)
+
+    # A target configured through the environment, or from before several of
+    # them were possible, becomes the first entry in the list.
+    if not db.list_notifiers():
+        service = (config.DEFAULTS.get("notify_service") or "").strip()
+        url = (config.DEFAULTS.get("notify_url") or "").strip()
+        if service in notify_mod.SERVICES and url:
+            db.add_notifier(service, url, config.DEFAULTS.get("notify_token", ""))
+            db.log("info", "Notification target taken from the environment ({})"
+                   .format(service), "app")
 
     # The waiting time used to be called webhook_wait. Carry the configured
     # value over instead of silently resetting it to the default.

@@ -144,16 +144,17 @@ def test_an_unreachable_server_says_so(monkeypatch):
 def scanner_with(**settings):
     import scanner as scanner_mod
 
-    values = {"emby_url": "http://emby", "emby_api_key": "k", "emby_refresh": "1"}
+    values = {"emby_url": "http://emby", "emby_api_key": "k"}
     values.update(settings)
     return scanner_mod.Scanner(lambda key, default=None: values.get(key, default))
 
 
-def test_the_notification_can_be_switched_off(monkeypatch):
+def test_the_refresh_happens_whenever_a_server_is_configured(monkeypatch):
+    """There is no switch for this any more - writing a trailer and leaving the
+    server unaware of it for twelve hours has no upside."""
     calls = recorder(monkeypatch, [LIBRARY, None])
-    scanner = scanner_with(emby_refresh="0")
-    assert scanner.notify_media_server({"title": "X"}, "550") is False
-    assert calls == []
+    assert scanner_with().notify_media_server({"title": "X"}, "550") is True
+    assert [c["method"] for c in calls] == ["GET", "POST"]
 
 
 def test_nothing_is_sent_without_a_configured_server(monkeypatch):

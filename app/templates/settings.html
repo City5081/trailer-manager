@@ -38,34 +38,14 @@
   <label>{{ t('emby.api_key') }}<input name="emby_api_key" value="{{ values.emby_api_key }}" autocomplete="off"></label>
   <p class="hint">{{ t('emby.api_key_hint') }}</p>
   <label>{{ t('emby.poll') }}<input name="emby_poll_minutes" value="{{ values.emby_poll_minutes }}" size="6"></label>
-  <p class="hint">{{ t('emby.poll_hint') }}</p>
-  <label class="inline"><input type="checkbox" name="emby_refresh" {% if values.emby_refresh %}checked{% endif %}> {{ t('emby.enabled') }}</label>
-  <p class="hint">{{ t('emby.refresh_hint') }}</p>
   <p class="hint"><b>{{ t('emby.last_poll') }}:</b>
      <span class="mono">{{ last_poll or t('emby.never') }}</span></p>
 
   <h2>{{ t('notify.title') }}</h2>
   <p class="hint">{{ t('notify.hint') }}</p>
-  <label>{{ t('notify.service') }}
-    <select name="notify_service">
-      <option value="">{{ t('notify.off') }}</option>
-      {% for name in notify_services %}
-        <option value="{{ name }}" {% if values.notify_service == name %}selected{% endif %}>{{ name }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>{{ t('notify.url') }}<input name="notify_url" value="{{ values.notify_url }}" autocomplete="off" placeholder="https://gotify.example.com"></label>
-  <p class="hint">{{ t('notify.url_hint') }}</p>
-  <ul class="steps">
-    {% for name in notify_services %}<li><b>{{ name }}</b>: <span class="mono small">{{ notify_examples[name] }}</span></li>{% endfor %}
-  </ul>
-  <label>{{ t('notify.token') }}<input name="notify_token" value="{{ values.notify_token }}" autocomplete="off"></label>
-  <p class="hint">{{ t('notify.token_hint') }}</p>
-
   <label class="inline"><input type="checkbox" name="notify_on_new" {% if values.notify_on_new %}checked{% endif %}> {{ t('notify.on_new') }}</label>
   <label class="inline"><input type="checkbox" name="notify_on_run" {% if values.notify_on_run %}checked{% endif %}> {{ t('notify.on_run') }}</label>
   <label class="inline"><input type="checkbox" name="notify_on_error" {% if values.notify_on_error %}checked{% endif %}> {{ t('notify.on_error') }}</label>
-  <p class="hint">{{ t('notify.volume_hint') }}</p>
 
   <h2>{{ t('settings.ui') }}</h2>
   <label>{{ t('settings.ui_language') }}
@@ -80,7 +60,6 @@
     <button class="primary" type="submit">{{ t('action.save') }}</button>
     <button formaction="{{ url_for('settings_test') }}" formmethod="post">{{ t('action.test') }}</button>
     <button formaction="{{ url_for('settings_emby_test') }}" formmethod="post">{{ t('emby.test') }}</button>
-    <button formaction="{{ url_for('settings_notify_test') }}" formmethod="post">{{ t('notify.test') }}</button>
   </div>
 </form>
 
@@ -127,6 +106,64 @@
       </select>
       <button class="primary" type="submit">{{ t('library.add') }}</button>
     </div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>{{ t('notify.targets') }}</h2>
+  <p class="hint">{{ t('notify.targets_hint') }}</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr>
+      <th>{{ t('notify.service') }}</th><th>{{ t('notify.url') }}</th>
+      <th>{{ t('library.enabled') }}</th><th>{{ t('table.actions') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for target in notifiers %}
+      <tr {% if not target['enabled'] %}class="muted"{% endif %}>
+        <td><b>{{ target['service'] }}</b></td>
+        <td class="mono small break">{{ target['url'] }}</td>
+        <td>
+          <form method="post" action="{{ url_for('notifier_toggle', notifier_id=target['id']) }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button class="small">{{ t('library.enabled') if target['enabled'] else t('library.disabled') }}</button>
+          </form>
+        </td>
+        <td class="actions">
+          <form method="post" action="{{ url_for('notifier_test', notifier_id=target['id']) }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button class="small">{{ t('notify.test') }}</button>
+          </form>
+          <form method="post" action="{{ url_for('notifier_delete', notifier_id=target['id']) }}"
+                onsubmit="return confirm('{{ t('notify.delete_confirm') }}');">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button class="small danger">{{ t('action.remove') }}</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">{{ t('notify.none') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <form method="post" action="{{ url_for('notifier_add') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <h2>{{ t('notify.add') }}</h2>
+    <div class="filters">
+      <select name="service">
+        {% for name in notify_services %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+      </select>
+      <input class="mono" name="url" placeholder="https://gotify.example.com" required>
+      <input class="mono" name="token" placeholder="{{ t('notify.token') }}">
+      <button class="primary" type="submit">{{ t('notify.add') }}</button>
+    </div>
+    <p class="hint">{{ t('notify.url_hint') }}</p>
+    <ul class="steps">
+      {% for name in notify_services %}<li><b>{{ name }}</b>: <span class="mono small">{{ notify_examples[name] }}</span></li>{% endfor %}
+    </ul>
+    <p class="hint">{{ t('notify.token_hint') }}</p>
   </form>
 </div>
 

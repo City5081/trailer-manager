@@ -56,6 +56,17 @@ CREATE INDEX IF NOT EXISTS idx_movies_tmdb    ON movies(tmdb_id);
 CREATE INDEX IF NOT EXISTS idx_movies_folder  ON movies(folder);
 CREATE INDEX IF NOT EXISTS idx_movies_library ON movies(library_id);
 
+-- Notification targets. Several can be active at once; each is one service
+-- with its own address, and can be switched off without losing its settings.
+CREATE TABLE IF NOT EXISTS notifiers (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    service TEXT NOT NULL,
+    url     TEXT NOT NULL,
+    token   TEXT DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created REAL
+);
+
 CREATE TABLE IF NOT EXISTS log (
     id      INTEGER PRIMARY KEY AUTOINCREMENT,
     ts      REAL NOT NULL,
@@ -209,6 +220,51 @@ def library_counts():
     with connect() as con:
         return {r["library_id"]: r["c"] for r in con.execute(
             "SELECT library_id, COUNT(*) c FROM movies GROUP BY library_id")}
+
+
+# ------------------------------------------------------------------ notifiers
+def add_notifier(service, url, token="", enabled=True):
+    with connect() as con:
+        cur = con.execute(
+            "INSERT INTO notifiers(service, url, token, enabled, created) "
+            "VALUES(?,?,?,?,?)",
+            (service, url.strip(), (token or "").strip(), 1 if enabled else 0,
+             time.time()))
+        return cur.lastrowid
+
+
+def update_notifier(notifier_id, **fields):
+    allowed = ("service", "url", "token", "enabled")
+    sets, params = [], []
+    for key, value in fields.items():
+        if key in allowed:
+            sets.append("{}=?".format(key))
+            params.append(value)
+    if not sets:
+        return
+    params.append(notifier_id)
+    with connect() as con:
+        con.execute("UPDATE notifiers SET {} WHERE id=?".format(", ".join(sets)), params)
+
+
+def delete_notifier(notifier_id):
+    with connect() as con:
+        con.execute("DELETE FROM notifiers WHERE id=?", (notifier_id,))
+
+
+def get_notifier(notifier_id):
+    with connect() as con:
+        return con.execute("SELECT * FROM notifiers WHERE id=?",
+                           (notifier_id,)).fetchone()
+
+
+def list_notifiers(only_enabled=False):
+    sql = "SELECT * FROM notifiers"
+    if only_enabled:
+        sql += " WHERE enabled=1"
+    sql += " ORDER BY id"
+    with connect() as con:
+        return con.execute(sql).fetchall()
 
 
 # --------------------------------------------------------------------- movies

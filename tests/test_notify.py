@@ -135,32 +135,80 @@ def test_every_service_has_an_example_address():
 def scanner_with(**settings):
     import scanner as scanner_mod
 
-    values = {"notify_service": "gotify", "notify_url": "https://gotify.example",
-              "notify_token": "tok", "notify_on_new": "1", "notify_on_error": "1",
-              "notify_on_run": "0"}
+    values = {"notify_on_new": "1", "notify_on_error": "1", "notify_on_run": "0"}
     values.update(settings)
     return scanner_mod.Scanner(lambda key, default=None: values.get(key, default))
 
 
-def test_nothing_is_sent_when_no_service_is_picked(monkeypatch):
+@pytest.fixture
+def target(database):
+    """One enabled Gotify target, removed again afterwards."""
+    notifier_id = database.add_notifier("gotify", "https://gotify.example", "tok")
+    yield notifier_id
+    database.delete_notifier(notifier_id)
+
+
+def test_nothing_is_sent_without_a_target(monkeypatch, database):
     calls = recorder(monkeypatch)
-    assert scanner_with(notify_service="").notify("a", "b") is False
+    for existing in database.list_notifiers():
+        database.delete_notifier(existing["id"])
+    assert scanner_with().notify("a", "b") == 0
     assert calls == []
 
 
-def test_each_kind_can_be_switched_off_on_its_own(monkeypatch):
+def test_every_enabled_target_receives_the_message(monkeypatch, database, target):
+    """Several services in parallel is the point - one message, two deliveries."""
+    calls = recorder(monkeypatch)
+    second = database.add_notifier("ntfy", "https://ntfy.sh/mine", "")
+    third = database.add_notifier("discord", "https://discord.example/hook", "")
+    database.update_notifier(third, enabled=0)          # switched off by hand
+    try:
+        assert scanner_with().notify("Head", "Body", when="on_new") == 2
+        assert sorted(c["url"] for c in calls) == [
+            "https://gotify.example/message?token=tok",
+            "https://ntfy.sh/mine",
+        ]
+    finally:
+        database.delete_notifier(second)
+        database.delete_notifier(third)
+
+
+def test_each_kind_can_be_switched_off_on_its_own(monkeypatch, target):
     calls = recorder(monkeypatch)
     scanner = scanner_with(notify_on_new="0", notify_on_run="1")
-    assert scanner.notify("a", "b", when="on_new") is False
-    assert scanner.notify("a", "b", when="on_run") is True
+    assert scanner.notify("a", "b", when="on_new") == 0
+    assert scanner.notify("a", "b", when="on_run") == 1
     assert len(calls) == 1
 
 
-def test_a_broken_notification_service_is_only_logged(monkeypatch, database):
+def test_one_broken_target_does_not_stop_the_others(monkeypatch, database, target):
+    """A dead Gotify must not cost the message on every other service."""
+    import notify as module
+
+    second = database.add_notifier("ntfy", "https://ntfy.sh/mine", "")
+    reached = []
+
+    def selective(service, url, token, title, message, priority=module.NORMAL):
+        if service == "gotify":
+            raise module.NotifyError("host is down")
+        reached.append(service)
+
+    monkeypatch.setattr(module, "send", selective)
+    try:
+        assert scanner_with().notify("a", "b", when="on_new") == 1
+        assert reached == ["ntfy"]
+        messages = [r["message"] for r in database.recent_log(10)
+                    if r["source"] == "notify"]
+        assert any("gotify" in m for m in messages)
+    finally:
+        database.delete_notifier(second)
+
+
+def test_a_broken_service_is_only_logged(monkeypatch, database, target):
     """The trailer is already written - a phone service must not undo that."""
     from urllib.error import URLError
     recorder(monkeypatch, URLError("host is down"))
 
-    assert scanner_with().notify("Trailer set", "Mayday", when="on_new") is False
+    assert scanner_with().notify("Trailer set", "Mayday", when="on_new") == 0
     messages = [r["message"] for r in database.recent_log(10) if r["source"] == "notify"]
-    assert any("Notification failed" in m for m in messages)
+    assert any("failed" in m for m in messages)

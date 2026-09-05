@@ -80,11 +80,11 @@ class Scanner:
     def notify_media_server(self, row, tmdb_id):
         """Ask Emby to re-read one item. Never lets a failure reach the caller.
 
-        The trailer is already written at this point; a server that is off or
+        Always done when a server is configured - there is no reason to write a
+        trailer and then leave the server unaware of it for twelve hours. The
+        trailer is already on disk at this point, so a server that is off or
         misconfigured must not turn a successful write into an error.
         """
-        if not self._flag(None, "emby_refresh", "1"):
-            return False
         server = self.media_server()
         if not server.configured():
             return False
@@ -99,22 +99,24 @@ class Scanner:
 
     # ---------------------------------------------------------- notifications
     def notify(self, title, message, priority=notify_mod.NORMAL, when="on_new"):
-        """Send one notification, if this kind is switched on.
+        """Send to every enabled target. Returns how many went out.
 
         A notification is never allowed to matter: the trailer is written, the
-        run is finished, and a phone service being unreachable must not turn
-        any of that into a failure.
+        run is finished, and a service being unreachable must not turn any of
+        that into a failure. One broken target also must not stop the others.
         """
-        service = (self.get("notify_service", "") or "").strip()
-        if not service or not self._flag(None, "notify_" + when, "0"):
-            return False
-        try:
-            notify_mod.send(service, self.get("notify_url", ""),
-                            self.get("notify_token", ""), title, message, priority)
-            return True
-        except notify_mod.NotifyError as e:
-            db.log("warn", "Notification failed: {}".format(e), "notify")
-            return False
+        if not self._flag(None, "notify_" + when, "0"):
+            return 0
+        sent = 0
+        for target in db.list_notifiers(only_enabled=True):
+            try:
+                notify_mod.send(target["service"], target["url"], target["token"],
+                                title, message, priority)
+                sent += 1
+            except notify_mod.NotifyError as e:
+                db.log("warn", "Notification via {} failed: {}"
+                       .format(target["service"], e), "notify")
+        return sent
 
     def stop(self):
         self._stop.set()

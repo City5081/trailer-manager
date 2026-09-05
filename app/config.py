@@ -70,7 +70,6 @@ DEFAULTS = {
     "emby_poll_minutes": str(_int("EMBY_POLL_MINUTES", 5)),
     "emby_url": os.environ.get("EMBY_URL", ""),
     "emby_api_key": os.environ.get("EMBY_API_KEY", ""),
-    "emby_refresh": "1" if _bool("EMBY_REFRESH", True) else "0",
     "notify_service": os.environ.get("NOTIFY_SERVICE", ""),
     "notify_url": os.environ.get("NOTIFY_URL", ""),
     "notify_token": os.environ.get("NOTIFY_TOKEN", ""),
