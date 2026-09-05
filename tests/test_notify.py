@@ -316,3 +316,14 @@ def test_the_address_is_named_for_other_errors_too(monkeypatch):
         notify_mod.send("gotify", "https://gotify.example/sub", "Atok", "a", "b")
     assert "https://gotify.example/sub/message" in str(error.value)
     assert "Atok" not in str(error.value)
+
+
+def test_requests_identify_themselves(monkeypatch):
+    """Without a User-Agent urllib announces itself as Python-urllib, which some
+    proxies answer with a flat 403 - indistinguishable from a wrong token."""
+    from version import USER_AGENT
+
+    calls = recorder(monkeypatch)
+    notify_mod.send("gotify", "https://gotify.example", "Atok", "a", "b")
+    assert calls[0]["headers"]["user-agent"] == USER_AGENT
+    assert "urllib" not in calls[0]["headers"]["user-agent"].lower()

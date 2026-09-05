@@ -18,6 +18,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from version import USER_AGENT
+
 # One index of the whole library is far cheaper than a lookup per movie, and it
 # stays usable for a while. A miss rebuilds it once, so a brand new item is
 # still found.
@@ -60,6 +62,7 @@ class Emby:
             url += "?" + urlencode(params)
         request = Request(url, method=method)
         request.add_header("Accept", "application/json")
+        request.add_header("User-Agent", USER_AGENT)
         # Emby uses the first header, Jellyfin the second. Sending both keeps
         # one client working against either server.
         request.add_header("X-Emby-Token", self.api_key)

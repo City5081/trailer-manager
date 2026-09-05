@@ -12,6 +12,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from version import USER_AGENT
+
 API = "https://api.themoviedb.org/3"
 
 
@@ -34,7 +36,7 @@ def get(path, api_key, **params):
     params["api_key"] = api_key
     url = "{}{}?{}".format(API, path, urlencode(params))
     req = Request(url, headers={"Accept": "application/json",
-                                "User-Agent": "trailer-manager/0.2"})
+                                "User-Agent": USER_AGENT})
     last = None
     for attempt in range(3):
         try:

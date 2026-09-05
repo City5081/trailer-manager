@@ -367,3 +367,11 @@ def test_a_stale_index_is_still_refreshed_on_a_miss(monkeypatch):
     server._index_time -= emby_mod.MISS_REBUILD_AFTER + 1    # let it age
     assert server.refresh("777") is True             # rebuild finds it
     assert [c["method"] for c in calls] == ["GET", "GET", "POST"]
+
+
+def test_emby_requests_identify_themselves(monkeypatch):
+    from version import USER_AGENT
+
+    calls = recorder(monkeypatch, [{"ServerName": "x", "Version": "1"}])
+    emby_mod.Emby("http://emby", "k").info()
+    assert calls[0]["headers"]["user-agent"] == USER_AGENT

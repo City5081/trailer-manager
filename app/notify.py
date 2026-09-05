@@ -16,6 +16,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
+from version import USER_AGENT
+
 TIMEOUT = 15
 
 NORMAL, HIGH = "normal", "high"
@@ -114,6 +116,7 @@ def send(service, url, token, title, message, priority=NORMAL):
 
     target, headers, body = build(url, (token or "").strip(), title, message, priority)
     request = Request(target, data=body, method="POST")
+    request.add_header("User-Agent", USER_AGENT)
     for name, value in headers.items():
         request.add_header(name, value)
     try:
