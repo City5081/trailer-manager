@@ -29,15 +29,20 @@
   <label>{{ t('settings.interval') }}<input name="scan_interval_hours" value="{{ values.scan_interval_hours }}" size="6"></label>
   <label>{{ t('settings.recheck') }}<input name="recheck_days" value="{{ values.recheck_days }}" size="6"></label>
   <label class="inline"><input type="checkbox" name="scan_on_start" {% if values.scan_on_start %}checked{% endif %}> {{ t('settings.scan_on_start') }}</label>
-  <label>{{ t('settings.webhook_wait') }}<input name="webhook_wait" value="{{ values.webhook_wait }}" size="6"></label>
-  <p class="hint">{{ t('settings.webhook_wait_hint') }}</p>
+  <label>{{ t('settings.nfo_wait') }}<input name="nfo_wait" value="{{ values.nfo_wait }}" size="6"></label>
+  <p class="hint">{{ t('settings.nfo_wait_hint') }}</p>
 
   <h2>{{ t('emby.title') }}</h2>
   <p class="hint">{{ t('emby.hint') }}</p>
   <label>{{ t('emby.url') }}<input name="emby_url" value="{{ values.emby_url }}" placeholder="http://192.168.1.10:8096" autocomplete="off"></label>
   <label>{{ t('emby.api_key') }}<input name="emby_api_key" value="{{ values.emby_api_key }}" autocomplete="off"></label>
   <p class="hint">{{ t('emby.api_key_hint') }}</p>
+  <label>{{ t('emby.poll') }}<input name="emby_poll_minutes" value="{{ values.emby_poll_minutes }}" size="6"></label>
+  <p class="hint">{{ t('emby.poll_hint') }}</p>
   <label class="inline"><input type="checkbox" name="emby_refresh" {% if values.emby_refresh %}checked{% endif %}> {{ t('emby.enabled') }}</label>
+  <p class="hint">{{ t('emby.refresh_hint') }}</p>
+  <p class="hint"><b>{{ t('emby.last_poll') }}:</b>
+     <span class="mono">{{ last_poll or t('emby.never') }}</span></p>
 
   <h2>{{ t('settings.ui') }}</h2>
   <label>{{ t('settings.ui_language') }}
@@ -99,31 +104,6 @@
       <button class="primary" type="submit">{{ t('library.add') }}</button>
     </div>
   </form>
-</div>
-
-<div class="card">
-  <h2>{{ t('settings.webhook') }}</h2>
-  <p class="hint">{{ t('webhook.hint') }}</p>
-  <p class="mono break url">{{ webhook_url }}</p>
-  <p class="hint">{{ t('webhook.token_note') }}</p>
-  <p class="hint"><b>{{ t('webhook.last') }}:</b>
-     <span class="mono">{{ last_webhook or t('webhook.never') }}</span></p>
-  <p class="hint">{{ t('webhook.test_hint') }}</p>
-
-  <h2>{{ t('webhook.emby') }}</h2>
-  <ol class="steps">
-    <li>{{ t('webhook.emby_where') }}</li>
-    <li>{{ t('webhook.emby_event') }}</li>
-    <li>{{ t('webhook.emby_type') }}</li>
-    <li>{{ t('webhook.emby_limit') }}</li>
-  </ol>
-  <p class="hint">{{ t('webhook.emby_note') }}</p>
-
-  <h2>{{ t('webhook.jellyfin') }}</h2>
-  <p class="hint">{{ t('webhook.jellyfin_where') }}</p>
-
-  <h2>{{ t('webhook.jellyseerr') }}</h2>
-  <p class="hint">{{ t('webhook.jellyseerr_where') }}</p>
 </div>
 
 <form method="post" action="{{ url_for('settings_password') }}" class="card">

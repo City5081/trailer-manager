@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS runs (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     started   REAL,
     finished  REAL,
-    trigger   TEXT,          -- manual | schedule | webhook | start
+    trigger   TEXT,          -- manual | schedule | start
     scanned   INTEGER DEFAULT 0,
     checked   INTEGER DEFAULT 0,
     updated   INTEGER DEFAULT 0,

@@ -72,21 +72,6 @@ def test_a_nonsense_page_number_is_not_a_server_error(client):
         assert client.get("/?page=" + value).status_code == 200
 
 
-def test_webhook_requires_the_token(client):
-    assert client.post("/webhook", json={"Event": "library.new"}).status_code == 403
-    assert client.post("/webhook?token=wrong", json={}).status_code == 403
-    response = client.post("/webhook?token=" + config.WEBHOOK_TOKEN,
-                           json={"Event": "library.new", "Item": {"Name": "Test"}})
-    assert response.status_code == 200
-    assert response.get_json()["accepted"] is True
-
-
-def test_webhook_ignores_unrelated_events(client):
-    response = client.post("/webhook?token=" + config.WEBHOOK_TOKEN,
-                           json={"Event": "playback.start"})
-    assert response.get_json() == {"ignored": "playback.start"}
-
-
 def test_security_headers_are_set(client):
     headers = client.get("/login").headers
     assert headers["X-Content-Type-Options"] == "nosniff"
@@ -96,28 +81,3 @@ def test_security_headers_are_set(client):
 def test_an_unknown_movie_gives_404(client):
     sign_in(client)
     assert client.get("/movie?path=/does/not/exist.nfo").status_code == 404
-
-
-def test_the_settings_page_shows_the_webhook_instructions(client):
-    sign_in(client)
-    page = client.get("/settings").get_data(as_text=True)
-    assert "application/json" in page
-    assert config.WEBHOOK_TOKEN in page
-
-
-def test_a_test_webhook_shows_up_in_the_log(client):
-    """Emby's test button sends an event we ignore. It still has to be visible,
-    otherwise there is no way to tell whether the webhook arrives at all."""
-    import db
-
-    sign_in(client)
-    response = client.post("/webhook?token=" + config.WEBHOOK_TOKEN,
-                           json={"Event": "playback.start", "Item": {"Name": "Probe"}})
-    assert response.get_json() == {"ignored": "playback.start"}
-
-    messages = [r["message"] for r in db.recent_log(20) if r["source"] == "webhook"]
-    assert any("Probe" in m and "playback.start" in m for m in messages)
-    assert "playback.start" in (db.get_setting("last_webhook") or "")
-
-    page = client.get("/settings").get_data(as_text=True)
-    assert "playback.start" in page

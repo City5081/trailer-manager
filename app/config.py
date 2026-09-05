@@ -49,7 +49,6 @@ def credentials_from_env():
 
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "")
-WEBHOOK_TOKEN = os.environ.get("WEBHOOK_TOKEN", "")
 
 # Behind a reverse proxy with TLS: only send the session cookie over HTTPS.
 COOKIE_SECURE = _bool("COOKIE_SECURE", False)
@@ -67,7 +66,8 @@ DEFAULTS = {
     "scan_interval_hours": str(_int("SCAN_INTERVAL_HOURS", 12)),
     "scan_on_start": "1" if _bool("SCAN_ON_START", True) else "0",
     "recheck_days": str(_int("RECHECK_DAYS", 30)),
-    "webhook_wait": str(_int("WEBHOOK_WAIT", 60)),
+    "nfo_wait": str(_int("NFO_WAIT", 60)),
+    "emby_poll_minutes": str(_int("EMBY_POLL_MINUTES", 5)),
     "emby_url": os.environ.get("EMBY_URL", ""),
     "emby_api_key": os.environ.get("EMBY_API_KEY", ""),
     "emby_refresh": "1" if _bool("EMBY_REFRESH", True) else "0",
@@ -100,20 +100,6 @@ def _persisted(name, make_value):
         return value, True
     except OSError:
         return make_value(), False
-
-
-def ensure_webhook_token():
-    """Take the webhook token from the environment or generate one once.
-
-    Without a token the webhook stays closed - and a token you have to create
-    yourself is easy to forget, leaving a webhook that silently does nothing.
-    The generated value is shown under Settings -> Webhook.
-
-    Returns (token, persisted).
-    """
-    if WEBHOOK_TOKEN:
-        return WEBHOOK_TOKEN, True
-    return _persisted("webhook_token", lambda: secrets.token_urlsafe(32))
 
 
 def ensure_secret_key():

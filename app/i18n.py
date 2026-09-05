@@ -95,8 +95,7 @@ STRINGS = {
         "setup.behaviour": "Verhalten",
         "setup.skip_check": "ohne Prüfung des API-Keys speichern",
         "setup.finish": "Einrichtung abschließen",
-        "setup.finished": "Einrichtung abgeschlossen. Die Webhook-Adresse steht "
-                          "weiter unten.",
+        "setup.finished": "Einrichtung abgeschlossen.",
         "setup.err_user": "Bitte einen Benutzernamen eintragen.",
         "setup.err_short": "Das Passwort ist zu kurz (mindestens 8 Zeichen).",
         "setup.err_repeat": "Die beiden Passwörter stimmen nicht überein.",
@@ -120,18 +119,31 @@ STRINGS = {
                                   "Film, nicht nur für den Trailer - Titel, "
                                   "Beschreibung und Bilder werden dann auch nicht mehr "
                                   "aktualisiert.",
-        "emby.title": "Emby benachrichtigen",
-        "emby.hint": "Emby liest geänderte NFO-Dateien erst beim nächsten "
-                     "Bibliotheks-Scan, standardmäßig alle 12 Stunden. Mit "
-                     "Adresse und API-Key sagen wir Emby nach jedem "
-                     "geschriebenen Trailer Bescheid, und zwar für genau diesen "
-                     "einen Film - kein Scan der ganzen Bibliothek.",
+        "settings.nfo_wait": "Auf die NFO warten, wenn ein Film neu ist (Sekunden)",
+        "settings.nfo_wait_hint": "Emby legt erst die Videodatei an und schreibt die "
+                                  "NFO kurz danach. In der Zwischenzeit gibt es nichts "
+                                  "zu finden - deshalb wird mehrfach nachgesehen. "
+                                  "0 schaltet das Warten ab.",
+        "emby.poll": "Emby nach neuen Filmen fragen (Minuten, 0 = aus)",
+        "emby.poll_hint": "Statt darauf zu warten, dass Emby uns etwas meldet, fragen "
+                          "wir nach: Was ist seit dem letzten Mal dazugekommen? Das "
+                          "ist eine einzige Anfrage und ersetzt den frueheren Webhook - "
+                          "in Emby muss dafuer nichts eingerichtet werden.",
+        "emby.last_poll": "Zuletzt abgefragt",
+        "emby.never": "noch nicht abgefragt",
+        "emby.title": "Emby",
+        "emby.hint": "Adresse und API-Key gelten für beides: neue Filme abfragen "
+                     "und Emby über geschriebene Trailer informieren. Jellyfin "
+                     "spricht dieselbe Schnittstelle.",
         "emby.url": "Adresse von Emby oder Jellyfin",
         "emby.api_key": "API-Key",
         "emby.api_key_hint": "In Emby unter Einstellungen -> Erweitert -> "
                              "API-Schlüssel anlegen. Der Schlüssel gilt "
                              "serverweit, also nicht weitergeben.",
         "emby.enabled": "nach dem Schreiben benachrichtigen",
+        "emby.refresh_hint": "Emby liest geänderte NFO-Dateien sonst erst beim "
+                             "nächsten Bibliotheks-Scan, standardmäßig alle 12 "
+                             "Stunden.",
         "emby.test": "Emby testen",
         "emby.test_ok": "Verbindung steht",
         "emby.entries_found": "Einträge gefunden",
@@ -152,11 +164,6 @@ STRINGS = {
         "settings.interval": "Intervall (Stunden, 0 = aus)",
         "settings.scan_on_start": "beim Start einmal durchlaufen",
         "settings.recheck": "Filme ohne Treffer erneut prüfen nach (Tagen)",
-        "settings.webhook_wait": "Nach einer Webhook-Meldung auf die NFO warten (Sekunden)",
-        "settings.webhook_wait_hint": "Emby legt erst die Videodatei an und schreibt "
-                                      "die NFO kurz danach. In der Zwischenzeit gibt "
-                                      "es nichts zu finden - deshalb wird mehrfach "
-                                      "nachgesehen. 0 schaltet das Warten ab.",
         "settings.ui": "Oberfläche",
         "settings.ui_language": "Sprache",
         "settings.password": "Passwort",
@@ -168,29 +175,6 @@ STRINGS = {
                                 "lässt sich hier nicht ändern.",
         "settings.saved": "Einstellungen gespeichert.",
 
-        "settings.webhook": "Webhook",
-        "webhook.hint": "Diese Adresse trägst du in Emby, Jellyfin oder Jellyseerr "
-                        "ein. Jeder neu hinzugefügte Film bekommt seinen Trailer "
-                        "dann sofort, ohne auf den nächsten Automatiklauf zu warten.",
-        "webhook.emby": "In Emby einrichten",
-        "webhook.emby_where": "Einstellungen -> Benachrichtigungen -> Webhooks -> "
-                              "Hinzufügen",
-        "webhook.emby_event": "Ereignis: nur 'Neue Medien hinzugefügt' "
-                              "(Library - New media added)",
-        "webhook.emby_type": "Inhaltstyp: application/json",
-        "webhook.emby_limit": "Bibliotheksereignisse beschränken auf: Filme",
-        "webhook.emby_note": "multipart/form-data wird ebenfalls verstanden, JSON ist "
-                             "aber eindeutiger. Die Bezeichnungen unterscheiden sich "
-                             "je nach Emby-Version leicht.",
-        "webhook.jellyfin": "In Jellyfin einrichten",
-        "webhook.jellyfin_where": "Dashboard -> Plugins -> Webhook -> Add Generic "
-                                  "Destination, Notification Type 'Item Added', "
-                                  "Item Type 'Movies'",
-        "webhook.jellyseerr": "In Jellyseerr einrichten",
-        "webhook.jellyseerr_where": "Settings -> Notifications -> Webhook, Auslöser "
-                                    "'Media Available'",
-        "webhook.token_note": "Das Token steckt in der Adresse. Wer sie kennt, kann "
-                              "Durchläufe auslösen - also nicht öffentlich teilen.",
 
         "settings.yes": "ein",
         "settings.no": "aus",
@@ -223,11 +207,6 @@ STRINGS = {
         "library.none": "Noch keine Bibliothek angelegt.",
         "library.tv_note": "Bei Serien wird je Serie die tvshow.nfo geschrieben, "
                            "nicht die einzelnen Folgen.",
-        "webhook.last": "Zuletzt empfangen",
-        "webhook.never": "noch nichts empfangen",
-        "webhook.test_hint": "Emby hat bei den Webhooks einen Knopf zum Testen. "
-                             "Danach steht der Empfang hier und im Protokoll - "
-                             "ein Testereignis löst bewusst keinen Durchlauf aus.",
 
         "log.title": "Protokoll",
         "log.time": "Zeit",
@@ -339,7 +318,7 @@ STRINGS = {
         "setup.behaviour": "Behaviour",
         "setup.skip_check": "save without checking the API key",
         "setup.finish": "Finish setup",
-        "setup.finished": "Setup complete. The webhook address is further down.",
+        "setup.finished": "Setup complete.",
         "setup.err_user": "Please enter a username.",
         "setup.err_short": "The password is too short (at least 8 characters).",
         "setup.err_repeat": "The two passwords do not match.",
@@ -359,17 +338,30 @@ STRINGS = {
                                   "fetching metadata for it. Careful: that covers the "
                                   "whole item, not just the trailer - title, plot and "
                                   "artwork stop being updated as well.",
-        "emby.title": "Notify Emby",
-        "emby.hint": "Emby only reads a changed NFO on its next library scan, "
-                     "every twelve hours by default. With an address and an API "
-                     "key we tell Emby about each trailer as it is written, for "
-                     "that one item - no full library scan.",
+        "settings.nfo_wait": "Wait for the NFO when an item is new (seconds)",
+        "settings.nfo_wait_hint": "Emby creates the video file first and writes the "
+                                  "NFO shortly after. In between there is nothing to "
+                                  "find, so we look again a few times. 0 turns the "
+                                  "waiting off.",
+        "emby.poll": "Ask Emby for new items every (minutes, 0 = off)",
+        "emby.poll_hint": "Instead of waiting for Emby to tell us something, we ask: "
+                          "what has been added since last time? That is a single "
+                          "request and replaces the former webhook - nothing needs to "
+                          "be set up inside Emby.",
+        "emby.last_poll": "Last asked",
+        "emby.never": "not asked yet",
+        "emby.title": "Emby",
+        "emby.hint": "The address and API key cover both jobs: asking for new "
+                     "items and telling Emby about written trailers. Jellyfin "
+                     "speaks the same interface.",
         "emby.url": "Address of Emby or Jellyfin",
         "emby.api_key": "API key",
         "emby.api_key_hint": "Create one in Emby under Settings -> Advanced -> "
                              "API keys. It is valid server wide, so keep it to "
                              "yourself.",
         "emby.enabled": "notify after writing",
+        "emby.refresh_hint": "Otherwise Emby only reads a changed NFO on its next "
+                             "library scan, every twelve hours by default.",
         "emby.test": "Test Emby",
         "emby.test_ok": "Connection works",
         "emby.entries_found": "entries found",
@@ -390,11 +382,6 @@ STRINGS = {
         "settings.interval": "Interval (hours, 0 = off)",
         "settings.scan_on_start": "run once on startup",
         "settings.recheck": "recheck movies without a hit after (days)",
-        "settings.webhook_wait": "Wait for the NFO after a webhook (seconds)",
-        "settings.webhook_wait_hint": "Emby creates the video file first and writes "
-                                      "the NFO shortly after. In between there is "
-                                      "nothing to find, so we look again a few times. "
-                                      "0 turns the waiting off.",
         "settings.ui": "Interface",
         "settings.ui_language": "Language",
         "settings.password": "Password",
@@ -406,27 +393,6 @@ STRINGS = {
                                 "be changed here.",
         "settings.saved": "Settings saved.",
 
-        "settings.webhook": "Webhook",
-        "webhook.hint": "Enter this address in Emby, Jellyfin or Jellyseerr. Every "
-                        "newly added movie then gets its trailer right away, without "
-                        "waiting for the next scheduled run.",
-        "webhook.emby": "Set up in Emby",
-        "webhook.emby_where": "Settings -> Notifications -> Webhooks -> Add",
-        "webhook.emby_event": "Event: only 'New media added' (Library)",
-        "webhook.emby_type": "Request content type: application/json",
-        "webhook.emby_limit": "Limit library events to: Movies",
-        "webhook.emby_note": "multipart/form-data is understood as well, but JSON is "
-                             "less ambiguous. Labels differ slightly between Emby "
-                             "versions.",
-        "webhook.jellyfin": "Set up in Jellyfin",
-        "webhook.jellyfin_where": "Dashboard -> Plugins -> Webhook -> Add Generic "
-                                  "Destination, notification type 'Item Added', "
-                                  "item type 'Movies'",
-        "webhook.jellyseerr": "Set up in Jellyseerr",
-        "webhook.jellyseerr_where": "Settings -> Notifications -> Webhook, trigger "
-                                    "'Media Available'",
-        "webhook.token_note": "The token is part of the address. Anyone who knows it "
-                              "can trigger runs, so do not share it publicly.",
 
         "settings.yes": "on",
         "settings.no": "off",
@@ -458,11 +424,6 @@ STRINGS = {
         "library.none": "No library configured yet.",
         "library.tv_note": "For TV shows the tvshow.nfo of each series is written, "
                            "not the individual episodes.",
-        "webhook.last": "Last received",
-        "webhook.never": "nothing received yet",
-        "webhook.test_hint": "Emby has a test button on its webhook settings. After "
-                             "pressing it the arrival shows up here and in the log - "
-                             "a test event deliberately does not start a run.",
 
         "log.title": "Log",
         "log.time": "Time",

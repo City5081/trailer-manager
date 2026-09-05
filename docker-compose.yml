@@ -21,7 +21,7 @@ services:
       # /config. See the README for the optional overrides.
 
     volumes:
-      # Database, session key and webhook token. Keep this one.
+      # Database and session key. Keep this one.
       - "/mnt/user/appdata/trailer-manager:/config"
 
       # One line per library, "<folder on the host>:<path in the container>".

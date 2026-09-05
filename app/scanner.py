@@ -1,4 +1,4 @@
-"""Scanning the libraries, automatic runs, schedule and webhook handling.
+"""Scanning the libraries, automatic runs, schedule, and new items from Emby.
 
 Every library is a folder plus a kind: movies (one NFO per movie folder) or TV
 shows (one tvshow.nfo per series folder). Each may override the global
@@ -37,6 +37,7 @@ class Scanner:
         self._scheduler = None
         self._emby = None
         self._emby_settings = None
+        self._poller = None
 
     # ------------------------------------------------------------------ helpers
     def setting_for(self, lib, key, default=None):
@@ -358,64 +359,100 @@ class Scanner:
         threading.Thread(target=self.run, kwargs=kwargs, daemon=True).start()
         return True
 
-    # ---------------------------------------------------------------- webhook
-    def handle_event(self, payload):
-        """Handle a notification from Emby, Jellyfin or Jellyseerr.
+    # ------------------------------------------------------- new items from Emby
+    def poll_new_items(self):
+        """Ask the media server what was added, and give those items a trailer.
 
-        The reported file path is the good case: it tells us which library the
-        item belongs to, so only that one folder has to be read. The TMDB id is
-        the fallback for senders that give no path at all.
+        This replaces the webhook. The server is asked instead of asking to be
+        told, which means nothing has to be configured inside Emby and no
+        connection has to reach this container from outside.
         """
-        path = _dig(payload, ["Item", "Path"]) or _dig(payload, ["Path"]) \
-            or _dig(payload, ["media", "path"])
-        tmdb_id = (_dig(payload, ["Item", "ProviderIds", "Tmdb"])
-                   or _dig(payload, ["Item", "ProviderIds", "tmdb"])
-                   or _dig(payload, ["ProviderIds", "Tmdb"])
-                   or _dig(payload, ["media", "tmdbId"])
-                   or _dig(payload, ["tmdbId"]))
-        title = (_dig(payload, ["Item", "Name"]) or _dig(payload, ["Name"])
-                 or _dig(payload, ["subject"]) or "?")
+        server = self.media_server()
+        if not server.configured():
+            return {"skipped": "no server configured"}
+        try:
+            items = server.recent_items()
+        except emby_mod.EmbyError as e:
+            db.log("warn", "Asking for new items failed: {}".format(e), "emby")
+            return {"error": str(e)}
 
-        lib = self._library_for(path) if path else None
-        rows = self._rows_for_path(path, lib) if path else []
-        if not rows and tmdb_id:
-            rows = db.find_by_tmdb(tmdb_id)
+        db.set_setting("emby_last_poll", time.strftime("%Y-%m-%d %H:%M:%S"))
+        seen = db.get_setting("emby_last_seen") or ""
+        newest = max([str(i.get("DateCreated") or "") for i in items] or [""])
 
-        # Emby adds the media file first and writes the NFO a moment later, so
-        # a webhook that arrives in between finds nothing yet. Waiting and
-        # looking again is far cheaper than reading the whole library, and it
-        # is what turns "no matching entry found" into a normal hit.
-        if not rows and path and lib is not None:
-            rows = self._wait_for_nfo(path, lib, tmdb_id, title)
+        if not seen:
+            # First time: remember where we are instead of treating the whole
+            # library as new and looking up fifty films at once.
+            db.set_setting("emby_last_seen", newest)
+            db.log("info", "Media server connected - watching for items added from "
+                           "now on.", "emby")
+            return {"bootstrapped": len(items)}
 
-        if not rows and tmdb_id:
-            # Last resort. With a known library only that one is read; without
-            # a usable path there is nothing to narrow it down to.
-            if lib is not None:
-                db.log("info", "Webhook: {} still unknown, reading '{}'"
-                       .format(title, _row_value(lib, "name")), "webhook")
-                self.scan_library(lib)
-            else:
-                db.log("info", "Webhook: {} has no usable path, reading every library"
-                       .format(title), "webhook")
-                self.scan_all()
-            rows = db.find_by_tmdb(tmdb_id)
+        fresh = [i for i in items if str(i.get("DateCreated") or "") > seen]
+        if not fresh:
+            return {"new": 0}
 
+        db.log("info", "{} new item(s) reported by the media server".format(len(fresh)),
+               "emby")
+        handled = 0
+        for item in sorted(fresh, key=lambda i: str(i.get("DateCreated") or "")):
+            if self._stop.is_set():
+                break
+            if self._handle_new_item(item):
+                handled += 1
+            db.set_setting("emby_last_seen", str(item.get("DateCreated") or newest))
+        return {"new": len(fresh), "handled": handled}
+
+    def _handle_new_item(self, item):
+        """One newly added movie or series."""
+        title = item.get("Name") or "?"
+        tmdb_id = (item.get("ProviderIds") or {}).get("Tmdb")
+
+        rows = db.find_by_tmdb(tmdb_id) if tmdb_id else []
         if not rows:
-            db.log("warn", "Webhook: no matching entry found ({})".format(title), "webhook")
-            return {"matched": 0, "title": title}
+            folder, lib = self._local_folder_for(item)
+            if folder is None:
+                db.log("warn", "{} is not in any configured library".format(title), "emby")
+                return False
+            rows = self._rows_for_path(str(folder), lib)
+            if not rows:
+                rows = self._wait_for_nfo(str(folder), lib, tmdb_id, title)
+        if not rows:
+            db.log("warn", "No NFO found for {} yet".format(title), "emby")
+            return False
 
-        results = []
         for row in rows:
-            status, msg = self.process_movie(row)
-            results.append({"title": row["title"], "status": status, "message": msg})
-        db.log("info", "Webhook: {} -> {}".format(title, results[0]["status"]), "webhook")
-        return {"matched": len(rows), "title": title, "results": results}
+            self.process_movie(row)
+        return True
+
+    def _local_folder_for(self, item):
+        """Match an Emby item to a folder in our libraries.
+
+        Emby reports its own paths - /mnt/user/Movies/... - while this container
+        sees /movies, so only the folder name can be compared. For a movie that
+        is the folder holding the media file, for a series the series folder.
+        """
+        emby_path = str(item.get("Path") or "").replace("\\", "/").rstrip("/")
+        if not emby_path:
+            return None, None
+        kind = "tv" if item.get("Type") == "Series" else "movie"
+        parts = [p for p in emby_path.split("/") if p]
+        if not parts:
+            return None, None
+        name = parts[-1] if kind == "tv" else (parts[-2] if len(parts) > 1 else parts[-1])
+
+        for lib in db.list_libraries(only_enabled=True):
+            if (_row_value(lib, "kind") or "movie") != kind:
+                continue
+            candidate = Path(_row_value(lib, "path") or "/") / name
+            if candidate.is_dir():
+                return candidate, lib
+        return None, None
 
     def _wait_steps(self):
         """Growing pauses that add up to the configured waiting time."""
         try:
-            total = int(self.get("webhook_wait", "60") or 60)
+            total = int(self.get("nfo_wait", "60") or 60)
         except (TypeError, ValueError):
             total = 60
         steps, spent = [], 0
@@ -427,7 +464,11 @@ class Scanner:
         return steps
 
     def _wait_for_nfo(self, path, lib, tmdb_id, title):
-        """Look again a few times while the media server catches up."""
+        """Look again a few times while the media server catches up.
+
+        Emby knows about a film before it has written the NFO next to it, so
+        the first look often finds nothing at all.
+        """
         waited = 0
         for delay in self._wait_steps():
             if self._stop.is_set():
@@ -438,8 +479,8 @@ class Scanner:
             if not rows and tmdb_id:
                 rows = db.find_by_tmdb(tmdb_id)
             if rows:
-                db.log("info", "Webhook: NFO for {} appeared after {}s".format(title, waited),
-                       "webhook")
+                db.log("info", "NFO for {} appeared after {}s".format(title, waited),
+                       "emby")
                 return rows
         return []
 
@@ -537,6 +578,26 @@ class Scanner:
 
         self._scheduler = threading.Thread(target=loop, daemon=True)
         self._scheduler.start()
+
+        def poller():
+            while True:
+                try:
+                    minutes = float(self.get("emby_poll_minutes", "5") or 0)
+                except (TypeError, ValueError):
+                    minutes = 5
+                if minutes <= 0:
+                    time.sleep(60)              # asking switched off
+                    continue
+                time.sleep(minutes * 60)
+                if self.busy:
+                    continue                    # a run is already working through it
+                try:
+                    self.poll_new_items()
+                except Exception as e:          # noqa: BLE001
+                    db.log("error", "Asking for new items failed: {}".format(e), "emby")
+
+        self._poller = threading.Thread(target=poller, daemon=True)
+        self._poller.start()
 
 
 def _ancestors(folder, root):

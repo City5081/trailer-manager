@@ -1,8 +1,11 @@
-"""Telling Emby (or Jellyfin) that an NFO changed.
+"""Talking to Emby (or Jellyfin).
+
+Two jobs. Asking what was added recently, which is how new films reach us, and
+telling the server that an NFO changed.
 
 Emby only notices an edited NFO when it scans, which by default happens every
-twelve hours. A trailer written now would sit there unseen until then. This
-asks the server to refresh exactly the one item instead.
+twelve hours. A trailer written now would sit there unseen until then, so the
+server is asked to refresh exactly the one item instead.
 
 Items are found by their TMDB id, not by path: the server sees the library
 under its own mount (/mnt/user/Movies), while this container sees /movies, and
@@ -81,6 +84,20 @@ class Emby:
         data = self._call("GET", "/System/Info") or {}
         return {"name": data.get("ServerName") or "?",
                 "version": data.get("Version") or "?"}
+
+    def recent_items(self, limit=50):
+        """The most recently added movies and series, newest first.
+
+        Filtering by date is done by the caller rather than by the server: the
+        parameter for it differs between Emby versions and Jellyfin, while
+        sorting by DateCreated works everywhere.
+        """
+        data = self._call("GET", "/Items", Recursive="true",
+                          IncludeItemTypes="Movie,Series",
+                          SortBy="DateCreated", SortOrder="Descending",
+                          Limit=str(int(limit)), EnableImages="false",
+                          Fields="ProviderIds,Path,DateCreated") or {}
+        return data.get("Items") or []
 
     def _build_index(self):
         data = self._call("GET", "/Items", Recursive="true",

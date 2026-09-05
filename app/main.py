@@ -13,8 +13,6 @@ import threading
 import time
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import quote
-
 from flask import (Flask, abort, flash, jsonify, redirect, render_template,
                    request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -33,7 +31,7 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = config.COOKIE_SECURE
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=config.SESSION_DAYS)
-app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024      # webhook payloads are small
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024      # forms here are tiny
 
 SCANNER = None
 MIN_PASSWORD_LENGTH = 8
@@ -217,7 +215,7 @@ def switch_language(code):
 
 
 # ------------------------------------------------------------------------ CSRF
-CSRF_EXEMPT = {"webhook", "health", "static"}
+CSRF_EXEMPT = {"health", "static"}
 
 
 def csrf_token():
@@ -284,7 +282,7 @@ def inject_globals():
 
 
 # ----------------------------------------------------------------- setup wizard
-SETUP_EXEMPT = {"setup", "static", "health", "webhook", "login", "switch_language"}
+SETUP_EXEMPT = {"setup", "static", "health", "login", "switch_language"}
 
 
 def setup_done():
@@ -544,7 +542,7 @@ def status():
 @login_required
 def settings_page():
     keys_text = ["tmdb_api_key", "languages", "link_format", "scan_interval_hours",
-                 "recheck_days", "webhook_wait", "ui_language",
+                 "recheck_days", "nfo_wait", "emby_poll_minutes", "ui_language",
                  "emby_url", "emby_api_key"]
     keys_flag = ["keep_format", "backup", "lockdata", "scan_on_start",
                  "overwrite_existing", "emby_refresh"]
@@ -560,13 +558,10 @@ def settings_page():
 
     values = {key: setting(key, "") for key in keys_text}
     values.update({key: flag(key) for key in keys_flag})
-    webhook_url = url_for("webhook", _external=True)
-    if config.WEBHOOK_TOKEN:
-        webhook_url += "?token=" + quote(config.WEBHOOK_TOKEN)
-    return render_template("settings.html", values=values, webhook_url=webhook_url,
+    return render_template("settings.html", values=values,
                            runs=db.last_runs(5), libraries=db.list_libraries(),
                            counts=db.library_counts(), kinds=db.KINDS,
-                           last_webhook=db.get_setting("last_webhook") or "")
+                           last_poll=db.get_setting("emby_last_poll") or "")
 
 
 # --------------------------------------------------------------------- libraries
@@ -704,59 +699,6 @@ def log_page():
     return render_template("log.html", entries=db.recent_log(300), runs=db.last_runs(10))
 
 
-# --------------------------------------------------------------------- webhook
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    """Emby, Jellyfin and Jellyseerr report new movies here.
-
-    Guarded by a token (query parameter or header), because webhooks have to
-    work without a session.
-    """
-    if not config.WEBHOOK_TOKEN:
-        # Without a token the endpoint would be open to anyone who reaches the port.
-        db.log("warn", "Webhook refused: WEBHOOK_TOKEN is not set", "webhook")
-        abort(403)
-    supplied = (request.args.get("token")
-                or request.headers.get("X-Webhook-Token", ""))
-    if not _equal(supplied, config.WEBHOOK_TOKEN):
-        db.log("warn", "Webhook with a wrong token from {}".format(request.remote_addr),
-               "webhook")
-        abort(403)
-
-    payload = request.get_json(silent=True)
-    if payload is None:
-        payload = request.form.to_dict() or {}
-    event = (payload.get("Event") or payload.get("NotificationType")
-             or payload.get("notification_type") or "")
-    title = _dig(payload, "Item", "Name") or payload.get("Name") or ""
-
-    # Log every accepted request, not just the ones that lead to work. A test
-    # webhook from Emby carries an event we ignore, and without this line there
-    # would be nothing at all to show that it arrived.
-    note = "Webhook received from {}: event '{}'{}".format(
-        request.remote_addr, event or "(none)",
-        " - {}".format(title) if title else "")
-    db.log("info", note, "webhook")
-    db.set_setting("last_webhook", "{} | {}".format(
-        time.strftime("%Y-%m-%d %H:%M:%S"), note))
-
-    if event and not any(word in str(event).lower()
-                         for word in ("add", "new", "created", "available", "library")):
-        return jsonify({"ignored": event})
-
-    threading.Thread(target=SCANNER.handle_event, args=(payload,), daemon=True).start()
-    return jsonify({"accepted": True, "event": event})
-
-
-def _dig(data, *keys):
-    cur = data
-    for key in keys:
-        if not isinstance(cur, dict):
-            return None
-        cur = cur.get(key)
-    return cur
-
-
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "busy": SCANNER.busy if SCANNER else False})
@@ -791,16 +733,17 @@ def create_app():
         if db.get_setting(key) is None:
             db.set_setting(key, value)
 
+    # The waiting time used to be called webhook_wait. Carry the configured
+    # value over instead of silently resetting it to the default.
+    old_wait = db.get_setting("webhook_wait")
+    if old_wait and db.get_setting("nfo_wait") in (None, ""):
+        db.set_setting("nfo_wait", old_wait)
+
     # An installation that already ran before the wizard existed, or one fully
     # configured through the environment, should not be sent to the wizard.
     if db.get_setting("setup_done") is None:
         configured = bool(config.DEFAULTS["tmdb_api_key"] and config.credentials_from_env())
         db.set_setting("setup_done", "1" if configured else "0")
-
-    config.WEBHOOK_TOKEN, persisted = config.ensure_webhook_token()
-    if not persisted:
-        db.log("warn", "The webhook token could not be stored under /config - it only "
-                       "lasts until the next restart. Check the permissions.", "app")
 
     ensure_default_library()
     SCANNER = scanner_mod.Scanner(setting)

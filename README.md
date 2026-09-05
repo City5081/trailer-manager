@@ -36,11 +36,12 @@ anime films looking for Japanese trailers, and one for series, side by side.
   are never even opened, so a library with thousands of episodes still scans
   quickly.
 - **Schedule** at a configurable interval, plus a run at startup.
-- **Webhook** for Emby, Jellyfin and Jellyseerr: new movie → trailer set at once.
+- **Watches Emby** for newly added items and gives them a trailer within
+  minutes, without anything to configure on the Emby side.
 - **Web interface** with a movie list, search, filters, sortable columns —
   including *trailer set*, so the newest additions come first — per-movie lookup
   and manual editing of the link; every trailer can be previewed on YouTube.
-- **Login** with username and password, webhook secured separately by a token.
+- **Login** with username and password.
 - **Bilingual** German/English, switchable in the header.
 - **Robust TMDB queries**: the `language` filter of the videos endpoint returns
   nothing for some language and region combinations even though the video
@@ -146,11 +147,11 @@ you need them.
 | `SCAN_INTERVAL_HOURS` | interval, `0` disables the schedule |
 | `SCAN_ON_START` | run once when the container starts |
 | `RECHECK_DAYS` | retry movies without a hit after this many days |
-| `WEBHOOK_WAIT` | seconds to keep looking for a late NFO (default 60) |
-| `EMBY_URL`, `EMBY_API_KEY` | server to notify after a write |
-| `EMBY_REFRESH` | `false` disables the notification |
+| `NFO_WAIT` | seconds to keep looking for a late NFO (default 60) |
+| `EMBY_URL`, `EMBY_API_KEY` | media server to watch and notify |
+| `EMBY_POLL_MINUTES` | how often to ask for new items (`0` = off) |
+| `EMBY_REFRESH` | `false` disables the notification after a write |
 | `UI_LANGUAGE` | `de` or `en` |
-| `WEBHOOK_TOKEN` | empty = generated on first start |
 | `AUTH_DISABLED` | `true` only when an auth proxy handles the login |
 | `PUID` / `PGID` | ownership of files written by the container |
 | `PORT` | port inside the container (default 8081) |
@@ -159,74 +160,35 @@ The published port and the mounted folders are plain values in
 `docker-compose.yml`. `MOVIES_DIR` only seeds the very first library; after that
 the folders come from the database.
 
-## Telling Emby about it
+## Emby
 
-Emby only reads a changed NFO on its next library scan — every twelve hours by
-default — so a trailer written now would sit unseen until then. Put the server
-address and an API key under *Settings → Notify Emby* and each written trailer
-is announced immediately, for that one item; no full library scan.
+Address and API key, under *Settings → Emby*, cover two jobs. The key is created
+in Emby under *Settings → Advanced → API keys*; *Test Emby* reports the server
+name, version and how many items were found. Jellyfin speaks the same interface.
 
-The API key is created in Emby under *Settings → Advanced → API keys*. Use *Test
-Emby* to check the connection: it reports the server name, version and how many
-items were found.
+**New items.** Every few minutes the server is asked what has been added since
+last time — one request, and whatever is new gets its trailer right away instead
+of waiting for the next scheduled run. Nothing has to be configured inside Emby,
+and no connection has to reach this container from outside. The first ask only
+notes where to start, so connecting a server does not look up the whole library
+at once.
 
-Items are matched by their TMDB id, not by path, because the server sees the
-library under its own mount (`/mnt/user/Movies`) while this container sees
-`/movies`. The refresh replaces nothing — images are left alone and no internet
-provider is asked — so it cannot undo anything you set by hand. If the server is
-down or the key is wrong, the trailer is still written and a warning goes to the
-log.
+Emby reports its own paths (`/mnt/user/Movies/Film (2024)/…`) while this
+container sees `/movies`, so items are matched by folder name inside the
+configured libraries, and by TMDB id where one is known. Emby usually knows
+about a film before it has written the NFO next to it, so when nothing is there
+yet the folder is checked again over the next minute (*Settings → Wait for the
+NFO*, `0` turns it off).
 
-Jellyfin speaks the same API and works with the same two fields.
+**Written trailers.** Emby only reads a changed NFO on its next library scan,
+every twelve hours by default. With *notify after writing* enabled each trailer
+is announced as it is written, for that one item. The refresh replaces
+nothing — images are left alone and no internet provider is asked — so it cannot
+undo anything set by hand. If the server is down or the key is wrong, the trailer
+is still written and a warning goes to the log.
 
-## Webhook
-
-Nothing needs preparing: if `WEBHOOK_TOKEN` is unset, the first start generates
-one and stores it in `/config/webhook_token`. The finished address is shown
-under *Settings → Webhook* — copy it from there:
-
-```
-http://SERVER:8099/webhook?token=YOUR_TOKEN
-```
-
-**Emby** — Settings → Notifications → Webhooks → Add:
-
-| Field | Value |
-|---|---|
-| URL | the address above |
-| Request content type | `application/json` |
-| Events | *New media added* (under Library) only |
-| Limit library events to | Movies |
-
-`multipart/form-data` is understood as well, but JSON is less ambiguous. Labels
-differ slightly between Emby versions.
-
-**Jellyfin** — Dashboard → Plugins → Webhook → Add Generic Destination,
-notification type *Item Added*, item type *Movies*.
-
-**Jellyseerr** — Settings → Notifications → Webhook, trigger *Media Available*.
-
-The item is matched by the file path from the notification first, then by TMDB
-id. The path also says which library it belongs to, so only that one folder is
-read — never the whole collection. For a series the notification points at an
-episode file, so the path is walked upwards until the `tvshow.nfo` turns up.
-
-Emby creates the video file first and writes the NFO shortly after, so a webhook
-often arrives while there is still nothing to find. Instead of giving up, the
-folder is checked again a few times over the next minute (*Settings → Wait for
-the NFO after a webhook*, `0` turns it off).
-
-### Did it arrive?
-
-Emby has a test button on its webhook settings. Every request that gets past the
-token check is logged, so after pressing it you see the arrival in two places:
-*Settings → Webhook* shows the timestamp of the last one, and *Log* holds the
-full line with the event name and the sending address. A test event is
-deliberately not acted upon — it shows up as received and then ignored, which is
-exactly the signal you want.
-
-If nothing appears at all, the request never reached the container: check the
-address, the port and whether the token in the URL is complete.
+There is no webhook. Asking the server is simpler to set up, needs no inbound
+connection, and gives better data than parsing notification payloads.
 
 ## What gets checked
 
@@ -248,8 +210,8 @@ outside, put a reverse proxy with TLS in front (Nginx Proxy Manager, SWAG, …) 
 set `COOKIE_SECURE=true`.
 
 Built in: CSRF tokens on every form, a growing delay after repeated failed
-logins, `X-Frame-Options`/`nosniff`, and a webhook that only answers with a valid
-token — generated on first start, so there is no unprotected window.
+logins, and `X-Frame-Options`/`nosniff`. Nothing is exposed to the outside: the
+media server is contacted by this container, never the other way round.
 
 The setup wizard is reachable without a login until an account exists, which is
 the usual first run window. Complete it right after the first start; from then on
@@ -276,8 +238,8 @@ The test suite needs no network: TMDB is stubbed out everywhere.
 
 ```
 app/
-  main.py      Flask application: login, setup wizard, libraries, pages, webhook
-  scanner.py   scanning, automatic runs, schedule, webhook handling
+  main.py      Flask application: login, setup wizard, libraries, pages
+  scanner.py   scanning, automatic runs, schedule, new items from Emby
   db.py        SQLite: libraries, entries, log, settings, runs
   tmdb.py      TMDB client with robust language handling
   emby.py      tells Emby or Jellyfin to re-read a changed NFO

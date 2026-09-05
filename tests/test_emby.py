@@ -188,3 +188,104 @@ def test_changing_the_address_replaces_the_client():
     scanner.get = lambda key, default=None: {"emby_url": "http://other",
                                              "emby_api_key": "k"}.get(key, default)
     assert scanner.media_server() is not first
+
+
+# ------------------------------------------------------- asking for new items
+def library_with(*items):
+    return {"Items": list(items)}
+
+
+def movie(name, tmdb, created, path):
+    return {"Id": "id-" + tmdb, "Name": name, "Type": "Movie",
+            "ProviderIds": {"Tmdb": tmdb}, "DateCreated": created, "Path": path}
+
+
+def test_recent_items_asks_for_the_newest_first(monkeypatch):
+    calls = recorder(monkeypatch, [library_with(movie("A", "1", "2026-01-01", "/x/A/a.mkv"))])
+    items = emby_mod.Emby("http://emby", "k").recent_items(limit=25)
+
+    assert [i["Name"] for i in items] == ["A"]
+    url = calls[0]["url"]
+    assert "SortBy=DateCreated" in url and "SortOrder=Descending" in url
+    assert "Limit=25" in url
+    assert "Fields=ProviderIds%2CPath%2CDateCreated" in url
+
+
+def test_the_first_poll_only_remembers_where_it_starts(monkeypatch, database):
+    """Otherwise connecting a server would look up the fifty newest films at once."""
+    database.set_setting("emby_last_seen", "")
+    recorder(monkeypatch, [library_with(
+        movie("Old", "1", "2026-01-01T10:00:00", "/x/Old/o.mkv"),
+        movie("New", "2", "2026-02-01T10:00:00", "/x/New/n.mkv"))])
+
+    result = scanner_with().poll_new_items()
+    assert result == {"bootstrapped": 2}
+    assert database.get_setting("emby_last_seen") == "2026-02-01T10:00:00"
+
+
+def test_only_items_added_since_last_time_are_handled(monkeypatch, database, tmp_path):
+    import scanner as scanner_mod
+
+    database.set_setting("emby_last_seen", "2026-01-15T00:00:00")
+    recorder(monkeypatch, [library_with(
+        movie("Older", "1", "2026-01-01T10:00:00", "/emby/Older (2020)/o.mkv"),
+        movie("Newer", "2", "2026-02-01T10:00:00", "/emby/Newer (2021)/n.mkv"))])
+
+    handled = []
+    monkeypatch.setattr(scanner_mod.Scanner, "_handle_new_item",
+                        lambda self, item: handled.append(item["Name"]) or True)
+
+    result = scanner_with().poll_new_items()
+    assert result == {"new": 1, "handled": 1}
+    assert handled == ["Newer"]
+    assert database.get_setting("emby_last_seen") == "2026-02-01T10:00:00"
+
+
+def test_a_server_path_is_matched_by_folder_name(tmp_path, database):
+    """Emby says /mnt/user/Movies/Film (2024); we see /movies/Film (2024)."""
+    (tmp_path / "Film (2024)").mkdir()
+    lib_id = database.add_library("Local", str(tmp_path), "movie")
+    try:
+        scanner = scanner_with()
+        folder, lib = scanner._local_folder_for(
+            {"Type": "Movie", "Path": "/mnt/user/Movies/Film (2024)/Film.mkv"})
+        assert folder == tmp_path / "Film (2024)"
+        assert lib["id"] == lib_id
+
+        # A film that is not in any configured library stays unmatched.
+        missing, _ = scanner._local_folder_for(
+            {"Type": "Movie", "Path": "/mnt/user/Other/Nope (1999)/n.mkv"})
+        assert missing is None
+    finally:
+        database.delete_library(lib_id)
+
+
+def test_a_series_matches_its_own_folder(tmp_path, database):
+    (tmp_path / "Blue Bloods").mkdir()
+    lib_id = database.add_library("Shows", str(tmp_path), "tv")
+    try:
+        folder, _ = scanner_with()._local_folder_for(
+            {"Type": "Series", "Path": "/mnt/user/Shows/Blue Bloods"})
+        assert folder == tmp_path / "Blue Bloods"
+    finally:
+        database.delete_library(lib_id)
+
+
+def test_a_movie_library_is_not_offered_for_a_series(tmp_path, database):
+    (tmp_path / "Blue Bloods").mkdir()
+    lib_id = database.add_library("Films only", str(tmp_path), "movie")
+    try:
+        folder, _ = scanner_with()._local_folder_for(
+            {"Type": "Series", "Path": "/mnt/user/Shows/Blue Bloods"})
+        assert folder is None
+    finally:
+        database.delete_library(lib_id)
+
+
+def test_a_failing_poll_is_logged_and_not_raised(monkeypatch, database):
+    from urllib.error import URLError
+    recorder(monkeypatch, [URLError("host is down")])
+    result = scanner_with().poll_new_items()
+    assert "error" in result
+    messages = [r["message"] for r in database.recent_log(10) if r["source"] == "emby"]
+    assert any("Asking for new items failed" in m for m in messages)

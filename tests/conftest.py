@@ -18,7 +18,6 @@ os.environ.setdefault("MOVIES_DIR", str(_TMP / "movies"))
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("WEB_USERNAME", "tester")
 os.environ.setdefault("WEB_PASSWORD", "secret-with-umlaut-ä")
-os.environ.setdefault("WEBHOOK_TOKEN", "test-token")
 # Password and API key present: create_app treats the instance as configured and
 # does not send every request to the setup wizard.
 os.environ.setdefault("TMDB_API_KEY", "test-key")
