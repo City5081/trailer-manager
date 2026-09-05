@@ -14,6 +14,7 @@ from pathlib import Path
 import db
 import emby as emby_mod
 import nfo
+import notify as notify_mod
 import tmdb
 
 
@@ -95,6 +96,25 @@ class Scanner:
         except emby_mod.EmbyError as e:
             db.log("warn", "Refresh for {} failed: {}".format(row["title"], e), "emby")
         return False
+
+    # ---------------------------------------------------------- notifications
+    def notify(self, title, message, priority=notify_mod.NORMAL, when="on_new"):
+        """Send one notification, if this kind is switched on.
+
+        A notification is never allowed to matter: the trailer is written, the
+        run is finished, and a phone service being unreachable must not turn
+        any of that into a failure.
+        """
+        service = (self.get("notify_service", "") or "").strip()
+        if not service or not self._flag(None, "notify_" + when, "0"):
+            return False
+        try:
+            notify_mod.send(service, self.get("notify_url", ""),
+                            self.get("notify_token", ""), title, message, priority)
+            return True
+        except notify_mod.NotifyError as e:
+            db.log("warn", "Notification failed: {}".format(e), "notify")
+            return False
 
     def stop(self):
         self._stop.set()
@@ -347,8 +367,18 @@ class Scanner:
             db.finish_run(run_id, scanned, checked, updated, failed)
             self.state.update(phase="idle", current="")
             self._release()
-        result = {"scanned": scanned, "checked": checked, "updated": updated, "failed": failed}
+        result = {"scanned": scanned, "checked": checked, "updated": updated,
+                  "failed": failed}
         db.log("info", "Automatic run finished: {}".format(result), "auto")
+
+        summary = ("{} checked, {} trailers written, {} failed"
+                   .format(checked, updated, failed))
+        if failed:
+            # Errors are worth a message even when the summary itself is off.
+            self.notify("Run finished with errors", summary,
+                        priority=notify_mod.HIGH, when="on_error")
+        if checked or updated:
+            self.notify("Run finished", summary, when="on_run")
         return result
 
     def run_async(self, **kwargs):
@@ -422,7 +452,13 @@ class Scanner:
             return False
 
         for row in rows:
-            self.process_movie(row)
+            status, message = self.process_movie(row)
+            if status == "ok":
+                self.notify("Trailer set", "{}\n{}".format(row["title"], message),
+                            when="on_new")
+            elif status in ("no_trailer", "no_id"):
+                self.notify("No trailer found", "{}\n{}".format(row["title"], message),
+                            when="on_new")
         return True
 
     def _local_folder_for(self, item):

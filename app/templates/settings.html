@@ -44,6 +44,29 @@
   <p class="hint"><b>{{ t('emby.last_poll') }}:</b>
      <span class="mono">{{ last_poll or t('emby.never') }}</span></p>
 
+  <h2>{{ t('notify.title') }}</h2>
+  <p class="hint">{{ t('notify.hint') }}</p>
+  <label>{{ t('notify.service') }}
+    <select name="notify_service">
+      <option value="">{{ t('notify.off') }}</option>
+      {% for name in notify_services %}
+        <option value="{{ name }}" {% if values.notify_service == name %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>{{ t('notify.url') }}<input name="notify_url" value="{{ values.notify_url }}" autocomplete="off" placeholder="https://gotify.example.com"></label>
+  <p class="hint">{{ t('notify.url_hint') }}</p>
+  <ul class="steps">
+    {% for name in notify_services %}<li><b>{{ name }}</b>: <span class="mono small">{{ notify_examples[name] }}</span></li>{% endfor %}
+  </ul>
+  <label>{{ t('notify.token') }}<input name="notify_token" value="{{ values.notify_token }}" autocomplete="off"></label>
+  <p class="hint">{{ t('notify.token_hint') }}</p>
+
+  <label class="inline"><input type="checkbox" name="notify_on_new" {% if values.notify_on_new %}checked{% endif %}> {{ t('notify.on_new') }}</label>
+  <label class="inline"><input type="checkbox" name="notify_on_run" {% if values.notify_on_run %}checked{% endif %}> {{ t('notify.on_run') }}</label>
+  <label class="inline"><input type="checkbox" name="notify_on_error" {% if values.notify_on_error %}checked{% endif %}> {{ t('notify.on_error') }}</label>
+  <p class="hint">{{ t('notify.volume_hint') }}</p>
+
   <h2>{{ t('settings.ui') }}</h2>
   <label>{{ t('settings.ui_language') }}
     <select name="ui_language">
@@ -57,6 +80,7 @@
     <button class="primary" type="submit">{{ t('action.save') }}</button>
     <button formaction="{{ url_for('settings_test') }}" formmethod="post">{{ t('action.test') }}</button>
     <button formaction="{{ url_for('settings_emby_test') }}" formmethod="post">{{ t('emby.test') }}</button>
+    <button formaction="{{ url_for('settings_notify_test') }}" formmethod="post">{{ t('notify.test') }}</button>
   </div>
 </form>
 

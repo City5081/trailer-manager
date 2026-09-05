@@ -148,6 +148,31 @@ STRINGS = {
         "emby.test_ok": "Verbindung steht",
         "emby.entries_found": "Einträge gefunden",
         "emby.err_missing": "Bitte zuerst Adresse und API-Key eintragen.",
+        "notify.title": "Benachrichtigungen",
+        "notify.hint": "Meldungen an Gotify, ntfy, Discord oder einen beliebigen "
+                       "Webhook. Alle vier sind im Kern dasselbe - etwas an eine "
+                       "URL schicken -, weitere Dienste sind entsprechend leicht "
+                       "zu ergänzen.",
+        "notify.service": "Dienst",
+        "notify.off": "aus",
+        "notify.url": "Adresse",
+        "notify.url_hint": "Bei ntfy gehört das Thema in die Adresse, bei Discord "
+                           "ist es die vollständige Webhook-Adresse:",
+        "notify.token": "Token",
+        "notify.token_hint": "Gotify: Anwendungs-Token. ntfy: nur bei geschützten "
+                             "Themen. Discord: leer lassen.",
+        "notify.on_new": "wenn ein neu hinzugefügter Film einen Trailer bekommt",
+        "notify.on_run": "Zusammenfassung nach jedem Automatiklauf",
+        "notify.on_error": "bei Fehlern",
+        "notify.volume_hint": "Einzelmeldungen gibt es nur für Filme, die Emby neu "
+                              "gemeldet hat - ein Durchlauf über die ganze Bibliothek "
+                              "schreibt hunderte Trailer und meldet sich trotzdem nur "
+                              "einmal mit einer Zusammenfassung.",
+        "notify.test": "Benachrichtigung testen",
+        "notify.test_ok": "Benachrichtigung verschickt.",
+        "notify.test_title": "Trailer Manager",
+        "notify.test_body": "Test - wenn du das liest, funktioniert es.",
+        "notify.err_service": "Bitte zuerst einen Dienst auswählen.",
         "settings.title": "Einstellungen",
         "settings.tmdb": "TMDB",
         "settings.api_key": "API-Key (v3)",
@@ -366,6 +391,30 @@ STRINGS = {
         "emby.test_ok": "Connection works",
         "emby.entries_found": "entries found",
         "emby.err_missing": "Please enter an address and an API key first.",
+        "notify.title": "Notifications",
+        "notify.hint": "Messages to Gotify, ntfy, Discord or any plain webhook. All "
+                       "four are the same thing underneath - POST something to a "
+                       "URL - so further services are easy to add.",
+        "notify.service": "Service",
+        "notify.off": "off",
+        "notify.url": "Address",
+        "notify.url_hint": "For ntfy the topic belongs in the address, for Discord it "
+                           "is the full webhook address:",
+        "notify.token": "Token",
+        "notify.token_hint": "Gotify: application token. ntfy: only for protected "
+                             "topics. Discord: leave empty.",
+        "notify.on_new": "when a newly added item gets its trailer",
+        "notify.on_run": "summary after every automatic run",
+        "notify.on_error": "on errors",
+        "notify.volume_hint": "Individual messages are only sent for items Emby "
+                              "reported as new - a run across the whole library writes "
+                              "hundreds of trailers and still reports once, as a "
+                              "summary.",
+        "notify.test": "Test notification",
+        "notify.test_ok": "Notification sent.",
+        "notify.test_title": "Trailer Manager",
+        "notify.test_body": "Test - if you can read this, it works.",
+        "notify.err_service": "Please pick a service first.",
         "settings.title": "Settings",
         "settings.tmdb": "TMDB",
         "settings.api_key": "API key (v3)",

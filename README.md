@@ -151,6 +151,9 @@ you need them.
 | `EMBY_URL`, `EMBY_API_KEY` | media server to watch and notify |
 | `EMBY_POLL_MINUTES` | how often to ask for new items (`0` = off) |
 | `EMBY_REFRESH` | `false` disables the notification after a write |
+| `NOTIFY_SERVICE` | `gotify`, `ntfy`, `discord` or `webhook` |
+| `NOTIFY_URL`, `NOTIFY_TOKEN` | where to send and how to authenticate |
+| `NOTIFY_ON_NEW`, `NOTIFY_ON_RUN`, `NOTIFY_ON_ERROR` | which events to announce |
 | `UI_LANGUAGE` | `de` or `en` |
 | `AUTH_DISABLED` | `true` only when an auth proxy handles the login |
 | `PUID` / `PGID` | ownership of files written by the container |
@@ -189,6 +192,31 @@ is still written and a warning goes to the log.
 
 There is no webhook. Asking the server is simpler to set up, needs no inbound
 connection, and gives better data than parsing notification payloads.
+
+## Notifications
+
+*Settings → Notifications* sends messages to **Gotify**, **ntfy**, **Discord** or
+any plain webhook. Pick the service, give it an address and — where the service
+wants one — a token:
+
+| Service | Address | Token |
+|---|---|---|
+| Gotify | `https://gotify.example.com` | application token |
+| ntfy | `https://ntfy.sh/my-topic` | only for protected topics |
+| Discord | the full webhook URL | — |
+| webhook | any URL, receives JSON | optional, sent as a bearer |
+
+Three things can be announced, each on its own: a newly added item getting its
+trailer, a summary after each automatic run, and errors.
+
+Individual messages are only sent for items the media server reported as new. A
+run across a whole library writes hundreds of trailers and still reports once,
+as a summary — hundreds of phone alerts would be worse than none.
+
+**Adding another service** is one function in `app/notify.py`: it turns a message
+into a URL, headers and a body, and gets listed in `SERVICES`. Nothing else in
+the application changes. All four supported services are between three and eight
+lines each.
 
 ## What gets checked
 
@@ -243,6 +271,7 @@ app/
   db.py        SQLite: libraries, entries, log, settings, runs
   tmdb.py      TMDB client with robust language handling
   emby.py      tells Emby or Jellyfin to re-read a changed NFO
+  notify.py    Gotify, ntfy, Discord or a plain webhook
   nfo.py       reading and writing NFOs, link formats
   i18n.py      German/English translations
 docker/

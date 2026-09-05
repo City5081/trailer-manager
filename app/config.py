@@ -71,6 +71,12 @@ DEFAULTS = {
     "emby_url": os.environ.get("EMBY_URL", ""),
     "emby_api_key": os.environ.get("EMBY_API_KEY", ""),
     "emby_refresh": "1" if _bool("EMBY_REFRESH", True) else "0",
+    "notify_service": os.environ.get("NOTIFY_SERVICE", ""),
+    "notify_url": os.environ.get("NOTIFY_URL", ""),
+    "notify_token": os.environ.get("NOTIFY_TOKEN", ""),
+    "notify_on_new": "1" if _bool("NOTIFY_ON_NEW", True) else "0",
+    "notify_on_run": "0" if not _bool("NOTIFY_ON_RUN", False) else "1",
+    "notify_on_error": "1" if _bool("NOTIFY_ON_ERROR", True) else "0",
     "ui_language": os.environ.get("UI_LANGUAGE", "de"),
     "overwrite_existing": "0",
 }

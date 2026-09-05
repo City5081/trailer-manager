@@ -21,6 +21,7 @@ import config
 import db
 import emby as emby_mod
 import i18n
+import notify as notify_mod
 import nfo
 import scanner as scanner_mod
 import tmdb
@@ -543,9 +544,11 @@ def status():
 def settings_page():
     keys_text = ["tmdb_api_key", "languages", "link_format", "scan_interval_hours",
                  "recheck_days", "nfo_wait", "emby_poll_minutes", "ui_language",
-                 "emby_url", "emby_api_key"]
+                 "emby_url", "emby_api_key",
+                 "notify_service", "notify_url", "notify_token"]
     keys_flag = ["keep_format", "backup", "lockdata", "scan_on_start",
-                 "overwrite_existing", "emby_refresh"]
+                 "overwrite_existing", "emby_refresh",
+                 "notify_on_new", "notify_on_run", "notify_on_error"]
     if request.method == "POST":
         for key in keys_text:
             db.set_setting(key, request.form.get(key, "").strip())
@@ -561,6 +564,9 @@ def settings_page():
     return render_template("settings.html", values=values,
                            runs=db.last_runs(5), libraries=db.list_libraries(),
                            counts=db.library_counts(), kinds=db.KINDS,
+                           notify_services=sorted(notify_mod.SERVICES),
+                           notify_examples={name: notify_mod.example_url(name)
+                                            for name in notify_mod.SERVICES},
                            last_poll=db.get_setting("emby_last_poll") or "")
 
 
@@ -662,6 +668,22 @@ def settings_password():
         db.set_setting("web_password_hash", generate_password_hash(new))
         db.log("info", "Password changed", "auth")
         flash(t("settings.pw_saved"), "ok")
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/settings/notify-test", methods=["POST"])
+@login_required
+def settings_notify_test():
+    service = (setting("notify_service", "") or "").strip()
+    if not service:
+        flash(t("notify.err_service"), "error")
+        return redirect(url_for("settings_page"))
+    try:
+        notify_mod.send(service, setting("notify_url", ""), setting("notify_token", ""),
+                        t("notify.test_title"), t("notify.test_body"))
+        flash(t("notify.test_ok"), "ok")
+    except notify_mod.NotifyError as e:
+        flash(str(e), "error")
     return redirect(url_for("settings_page"))
 
 
