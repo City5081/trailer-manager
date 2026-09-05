@@ -29,8 +29,6 @@
   <label>{{ t('settings.interval') }}<input name="scan_interval_hours" value="{{ values.scan_interval_hours }}" size="6"></label>
   <label>{{ t('settings.recheck') }}<input name="recheck_days" value="{{ values.recheck_days }}" size="6"></label>
   <label class="inline"><input type="checkbox" name="scan_on_start" {% if values.scan_on_start %}checked{% endif %}> {{ t('settings.scan_on_start') }}</label>
-  <label>{{ t('settings.nfo_wait') }}<input name="nfo_wait" value="{{ values.nfo_wait }}" size="6"></label>
-  <p class="hint">{{ t('settings.nfo_wait_hint') }}</p>
 
   <h2>{{ t('emby.title') }}</h2>
   <p class="hint">{{ t('emby.hint') }}</p>

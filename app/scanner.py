@@ -488,7 +488,14 @@ class Scanner:
         return None, None
 
     def _wait_steps(self):
-        """Growing pauses that add up to the configured waiting time."""
+        """Growing pauses that add up to the configured waiting time.
+
+        No longer a setting in the interface. Emby creates a library entry as
+        soon as it sees the video file and writes the NFO once the metadata is
+        in, so an item can be reported a moment before its NFO exists. Asking
+        every few minutes usually lands well after that, which leaves this as a
+        safety net rather than something to tune - NFO_WAIT still turns it off.
+        """
         try:
             total = int(self.get("nfo_wait", "60") or 60)
         except (TypeError, ValueError):

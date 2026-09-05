@@ -119,11 +119,6 @@ STRINGS = {
                                   "Film, nicht nur für den Trailer - Titel, "
                                   "Beschreibung und Bilder werden dann auch nicht mehr "
                                   "aktualisiert.",
-        "settings.nfo_wait": "Auf die NFO warten, wenn ein Film neu ist (Sekunden)",
-        "settings.nfo_wait_hint": "Emby legt erst die Videodatei an und schreibt die "
-                                  "NFO kurz danach. In der Zwischenzeit gibt es nichts "
-                                  "zu finden - deshalb wird mehrfach nachgesehen. "
-                                  "0 schaltet das Warten ab.",
         "emby.poll": "Emby nach neuen Filmen fragen (Minuten, 0 = aus)",
         "emby.last_poll": "Zuletzt abgefragt",
         "emby.never": "noch nicht abgefragt",
@@ -354,11 +349,6 @@ STRINGS = {
                                   "fetching metadata for it. Careful: that covers the "
                                   "whole item, not just the trailer - title, plot and "
                                   "artwork stop being updated as well.",
-        "settings.nfo_wait": "Wait for the NFO when an item is new (seconds)",
-        "settings.nfo_wait_hint": "Emby creates the video file first and writes the "
-                                  "NFO shortly after. In between there is nothing to "
-                                  "find, so we look again a few times. 0 turns the "
-                                  "waiting off.",
         "emby.poll": "Ask Emby for new items every (minutes, 0 = off)",
         "emby.last_poll": "Last asked",
         "emby.never": "not asked yet",

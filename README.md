@@ -177,10 +177,12 @@ at once.
 
 Emby reports its own paths (`/mnt/user/Movies/Film (2024)/…`) while this
 container sees `/movies`, so items are matched by folder name inside the
-configured libraries, and by TMDB id where one is known. Emby usually knows
-about a film before it has written the NFO next to it, so when nothing is there
-yet the folder is checked again over the next minute (*Settings → Wait for the
-NFO*, `0` turns it off).
+configured libraries, and by TMDB id where one is known. Emby creates a library entry as soon as it sees the video file and writes the
+NFO once the metadata is in, so an item can be reported a moment before its NFO
+exists. When nothing is there yet the folder is checked again over the next
+minute. Asking every few minutes usually lands well after the NFO is written, so
+this is a safety net rather than something to tune — `NFO_WAIT` sets the seconds
+or turns it off with `0`.
 
 **Written trailers.** Emby only reads a changed NFO on its next library scan,
 every twelve hours by default, so each written trailer is announced as it is

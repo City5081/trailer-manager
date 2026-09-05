@@ -543,7 +543,7 @@ def status():
 @login_required
 def settings_page():
     keys_text = ["tmdb_api_key", "languages", "link_format", "scan_interval_hours",
-                 "recheck_days", "nfo_wait", "emby_poll_minutes", "ui_language",
+                 "recheck_days", "emby_poll_minutes", "ui_language",
                  "emby_url", "emby_api_key"]
     keys_flag = ["keep_format", "backup", "lockdata", "scan_on_start",
                  "overwrite_existing"]
