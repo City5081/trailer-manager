@@ -76,6 +76,7 @@ DEFAULTS = {
     "notify_on_new": "1" if _bool("NOTIFY_ON_NEW", True) else "0",
     "notify_on_run": "0" if not _bool("NOTIFY_ON_RUN", False) else "1",
     "notify_on_error": "1" if _bool("NOTIFY_ON_ERROR", True) else "0",
+    "notify_on_warning": "1" if _bool("NOTIFY_ON_WARNING", False) else "0",
     "ui_language": os.environ.get("UI_LANGUAGE", "de"),
     "overwrite_existing": "0",
 }

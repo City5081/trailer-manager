@@ -680,7 +680,8 @@ def settings_password():
     return redirect(url_for("settings_page"))
 
 
-NOTIFY_EVENTS = ("notify_on_new", "notify_on_run", "notify_on_error")
+NOTIFY_EVENTS = ("notify_on_new", "notify_on_run", "notify_on_error",
+                 "notify_on_warning")
 
 
 @app.route("/settings/notifications", methods=["POST"])
@@ -865,6 +866,7 @@ def create_app():
 
     ensure_default_library()
     SCANNER = scanner_mod.Scanner(setting)
+    db.set_log_hook(SCANNER.on_log)
     SCANNER.start_scheduler()
     db.log("info", "Trailer Manager started ({} libraries)"
            .format(len(db.list_libraries())), "app")

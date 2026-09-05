@@ -211,8 +211,14 @@ wants one, a token:
 | Discord | the full webhook URL | — |
 | webhook | any URL, receives JSON | optional, sent as a bearer |
 
-Three things can be announced, each on its own: a newly added item getting its
-trailer, a summary after each automatic run, and errors. Individual messages are
+Four things can be announced, each on its own: a newly added item getting its
+trailer, a summary after each automatic run, errors, and warnings.
+
+Warnings are picked up from the log itself rather than from a handful of chosen
+places, so anything worth a warning reaches you — a refresh Emby refused, an NFO
+that never appeared, a run skipped for want of an API key. Repeats are held back
+for ten minutes and there is a ceiling per hour, because a share that goes away
+warns once per movie. Individual messages are
 only sent for items the media server reported as new, so a run across a whole
 library reports once rather than several hundred times.
 

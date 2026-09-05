@@ -18,6 +18,13 @@ import notify as notify_mod
 import tmdb
 
 
+# How often the same warning may be repeated, and how many may go out per hour.
+# A share that goes away warns once per movie, and a few hundred alerts would be
+# worse than none.
+WARNING_REPEAT_AFTER = 600
+WARNING_BURST = 10
+
+
 def _row_value(row, key):
     """Read a column that may not exist on this row object."""
     try:
@@ -39,6 +46,9 @@ class Scanner:
         self._emby = None
         self._emby_settings = None
         self._poller = None
+        self._warn_seen = {}           # message -> when it was last sent
+        self._warn_recent = []         # timestamps, for the hourly ceiling
+        self._warn_lock = threading.Lock()
 
     # ------------------------------------------------------------------ helpers
     def setting_for(self, lib, key, default=None):
@@ -98,6 +108,46 @@ class Scanner:
         return False
 
     # ---------------------------------------------------------- notifications
+    def on_log(self, level, message, source):
+        """Turn a logged warning into a notification.
+
+        Hooked into the logging so nothing has to be remembered at each of the
+        places that can warn. Runs in its own thread: this is called from
+        whatever was working at the time, including a web request, and a slow
+        or dead notification service must not hold that up.
+        """
+        if level != "warn" or source == "notify":
+            return          # a failing notification warns; that must not loop
+        if not self._flag(None, "notify_on_warning", "0"):
+            return
+        if not self._warning_is_new(message):
+            return
+        threading.Thread(
+            target=self.notify,
+            args=("Warning", message),
+            kwargs={"priority": notify_mod.HIGH, "when": "on_warning"},
+            daemon=True).start()
+
+    def _warning_is_new(self, message):
+        """Keep a broken share from sending a few hundred alerts.
+
+        The same warning is repeated at most every ten minutes, and there is a
+        ceiling per hour regardless of how varied the warnings are.
+        """
+        now = time.time()
+        with self._warn_lock:
+            self._warn_seen = {text: when for text, when in self._warn_seen.items()
+                               if now - when < WARNING_REPEAT_AFTER}
+            self._warn_recent = [when for when in self._warn_recent
+                                 if now - when < 3600]
+            if message in self._warn_seen:
+                return False
+            if len(self._warn_recent) >= WARNING_BURST:
+                return False
+            self._warn_seen[message] = now
+            self._warn_recent.append(now)
+            return True
+
     def notify(self, title, message, priority=notify_mod.NORMAL, when="on_new"):
         """Send to every enabled target. Returns how many went out.
 

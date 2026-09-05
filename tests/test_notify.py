@@ -327,3 +327,113 @@ def test_requests_identify_themselves(monkeypatch):
     notify_mod.send("gotify", "https://gotify.example", "Atok", "a", "b")
     assert calls[0]["headers"]["user-agent"] == USER_AGENT
     assert "urllib" not in calls[0]["headers"]["user-agent"].lower()
+
+
+# --------------------------------------------------------------- on warnings
+def sent_messages(monkeypatch):
+    """Collect what would be sent, instead of sending it."""
+    import notify as module
+
+    seen = []
+    monkeypatch.setattr(module, "send",
+                        lambda service, url, token, title, message, priority=module.NORMAL:
+                        seen.append((title, message, priority)))
+    return seen
+
+
+def wait_for(condition, seconds=2.0):
+    """on_log delivers in a thread, so give it a moment."""
+    import time
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        if condition():
+            return True
+        time.sleep(0.02)
+    return False
+
+
+def test_a_logged_warning_becomes_a_notification(monkeypatch, database, target):
+    seen = sent_messages(monkeypatch)
+    scanner = scanner_with(notify_on_warning="1")
+
+    scanner.on_log("warn", "Refresh for Mayday failed: HTTP 400", "emby")
+    assert wait_for(lambda: seen)
+    title, message, priority = seen[0]
+    assert "Mayday" in message
+    assert priority == "high"
+
+
+def test_other_levels_do_not_notify(monkeypatch, database, target):
+    seen = sent_messages(monkeypatch)
+    scanner = scanner_with(notify_on_warning="1")
+
+    scanner.on_log("info", "Library read", "scan")
+    scanner.on_log("ok", "Trailer written", "auto")
+    assert not wait_for(lambda: seen, seconds=0.3)
+
+
+def test_warnings_stay_off_until_the_box_is_ticked(monkeypatch, database, target):
+    seen = sent_messages(monkeypatch)
+    scanner_with(notify_on_warning="0").on_log("warn", "something", "emby")
+    assert not wait_for(lambda: seen, seconds=0.3)
+
+
+def test_a_failing_notification_cannot_notify_about_itself(monkeypatch, database, target):
+    """The failure warns, and that warning must not start the loop again."""
+    seen = sent_messages(monkeypatch)
+    scanner_with(notify_on_warning="1").on_log("warn", "Notification failed", "notify")
+    assert not wait_for(lambda: seen, seconds=0.3)
+
+
+def test_the_same_warning_is_not_repeated(monkeypatch, database, target):
+    seen = sent_messages(monkeypatch)
+    scanner = scanner_with(notify_on_warning="1")
+
+    for _ in range(5):
+        scanner.on_log("warn", "No NFO found for Mayday yet", "emby")
+    assert wait_for(lambda: seen)
+    assert len(seen) == 1
+
+
+def test_a_flood_of_different_warnings_is_capped(monkeypatch, database, target):
+    """A share that disappears warns once per movie - a few hundred alerts
+    would be worse than none."""
+    import scanner as scanner_mod
+
+    seen = sent_messages(monkeypatch)
+    scanner = scanner_with(notify_on_warning="1")
+
+    for n in range(50):
+        scanner.on_log("warn", "No NFO found for movie {}".format(n), "scan")
+    assert wait_for(lambda: len(seen) >= scanner_mod.WARNING_BURST)
+    assert len(seen) == scanner_mod.WARNING_BURST
+
+
+def test_the_hook_reaches_the_scanner_through_the_log(monkeypatch, database, target):
+    """The point of hooking the log: nothing has to remember to notify."""
+    import db as db_mod
+
+    seen = sent_messages(monkeypatch)
+    scanner = scanner_with(notify_on_warning="1")
+    db_mod.set_log_hook(scanner.on_log)
+    try:
+        db_mod.log("warn", "Emby answered with HTTP 400", "emby")
+        assert wait_for(lambda: seen)
+        assert "HTTP 400" in seen[0][1]
+    finally:
+        db_mod.set_log_hook(None)
+
+
+def test_a_broken_hook_cannot_break_logging(database):
+    """Logging is not allowed to fail because something downstream did."""
+    import db as db_mod
+
+    def explode(*args):
+        raise RuntimeError("hook is broken")
+
+    db_mod.set_log_hook(explode)
+    try:
+        db_mod.log("warn", "still recorded", "test")
+        assert any("still recorded" in r["message"] for r in database.recent_log(5))
+    finally:
+        db_mod.set_log_hook(None)

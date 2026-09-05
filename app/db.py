@@ -466,6 +466,17 @@ def stats(primary_lang="de", library_id=None):
 # ------------------------------------------------------------------------ log
 LOG_KEEP = 2000
 _log_writes = 0
+_log_hook = None
+
+
+def set_log_hook(hook):
+    """Watch every log entry as it is written.
+
+    Used to turn warnings into notifications without having to remember a
+    notify() call at each of the two dozen places that can warn.
+    """
+    global _log_hook
+    _log_hook = hook
 
 
 def log(level, message, source="app"):
@@ -475,13 +486,23 @@ def log(level, message, source="app"):
     messages, so it happens every hundredth write instead.
     """
     global _log_writes
+    text = str(message)[:2000]
     with connect() as con:
         con.execute("INSERT INTO log(ts, level, source, message) VALUES(?,?,?,?)",
-                    (time.time(), level, source, str(message)[:2000]))
+                    (time.time(), level, source, text))
         _log_writes += 1
         if _log_writes % 100 == 0:
             con.execute("DELETE FROM log WHERE id NOT IN "
                         "(SELECT id FROM log ORDER BY id DESC LIMIT ?)", (LOG_KEEP,))
+
+    # After the write, never inside it: a hook that logs would otherwise
+    # re-enter the connection it is already holding.
+    hook = _log_hook
+    if hook is not None:
+        try:
+            hook(level, text, source)
+        except Exception:                                  # noqa: BLE001
+            pass            # logging must not fail because a hook did
 
 
 def recent_log(limit=200, level=None):
