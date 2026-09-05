@@ -70,6 +70,24 @@ SERVICES = {
 }
 
 
+def _rejection_hint(service, token):
+    """Why a service might be refusing this token.
+
+    'Rejected' on its own leaves you guessing. Gotify in particular has two
+    kinds of token and only one of them can send, which is the mistake almost
+    everyone makes once.
+    """
+    if service == "gotify":
+        if token.startswith("C"):
+            return (" That looks like a client token. Sending needs an application "
+                    "token from the Apps tab - those start with 'A'.")
+        return (" Gotify needs an application token from the Apps tab, not a client "
+                "token from the Clients tab.")
+    if service == "ntfy":
+        return " If the topic is protected, enter an access token."
+    return ""
+
+
 # ----------------------------------------------------------------- the sending
 def send(service, url, token, title, message, priority=NORMAL):
     """Deliver one notification. Raises NotifyError, never anything else."""
@@ -91,7 +109,8 @@ def send(service, url, token, title, message, priority=NORMAL):
             return response.status
     except HTTPError as e:
         if e.code in (401, 403):
-            raise NotifyError("The service rejects the token (HTTP {}).".format(e.code)) from e
+            raise NotifyError("The service rejects the token (HTTP {}).{}"
+                              .format(e.code, _rejection_hint(service, token))) from e
         raise NotifyError("The service answered with HTTP {} - {}"
                           .format(e.code, e.reason)) from e
     except URLError as e:

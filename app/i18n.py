@@ -143,8 +143,9 @@ STRINGS = {
         "notify.url_hint": "Bei ntfy gehört das Thema in die Adresse, bei Discord "
                            "ist es die vollständige Webhook-Adresse:",
         "notify.token": "Token",
-        "notify.token_hint": "Gotify: Anwendungs-Token. ntfy: nur bei geschützten "
-                             "Themen. Discord: leer lassen.",
+        "notify.token_hint": "Gotify: das Token einer Anwendung aus dem Reiter "
+                             "'Apps' (beginnt mit A) - nicht das eines Clients. "
+                             "ntfy: nur bei geschützten Themen. Discord: leer lassen.",
         "notify.on_new": "wenn ein neu hinzugefügter Film einen Trailer bekommt",
         "notify.on_run": "Zusammenfassung nach jedem Automatiklauf",
         "notify.on_error": "bei Fehlern",
@@ -374,8 +375,9 @@ STRINGS = {
         "notify.url_hint": "For ntfy the topic belongs in the address, for Discord it "
                            "is the full webhook address:",
         "notify.token": "Token",
-        "notify.token_hint": "Gotify: application token. ntfy: only for protected "
-                             "topics. Discord: leave empty.",
+        "notify.token_hint": "Gotify: an application token from the 'Apps' tab "
+                             "(starts with A) - not a client token. ntfy: only for "
+                             "protected topics. Discord: leave empty.",
         "notify.on_new": "when a newly added item gets its trailer",
         "notify.on_run": "summary after every automatic run",
         "notify.on_error": "on errors",

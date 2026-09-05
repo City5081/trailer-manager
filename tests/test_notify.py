@@ -269,3 +269,27 @@ def test_toggling_stays_on_the_settings_page(client, database, target):
 def test_an_unknown_target_gives_404(client):
     sign_in(client)
     assert client.get("/notifier/999999").status_code == 404
+
+
+def test_a_rejected_gotify_token_says_which_kind_is_needed(monkeypatch):
+    """403 on its own leaves you guessing; Gotify has two kinds of token and
+    only the application one can send."""
+    from urllib.error import HTTPError
+    recorder(monkeypatch, HTTPError("https://x", 403, "Forbidden", {}, None))
+
+    with pytest.raises(notify_mod.NotifyError) as error:
+        notify_mod.send("gotify", "https://gotify.example", "CkJ3xyz", "a", "b")
+    assert "client token" in str(error.value)
+    assert "Apps tab" in str(error.value)
+
+    with pytest.raises(notify_mod.NotifyError) as error:
+        notify_mod.send("gotify", "https://gotify.example", "AkJ3xyz", "a", "b")
+    assert "Apps tab" in str(error.value)
+
+
+def test_a_rejected_ntfy_topic_points_at_the_token(monkeypatch):
+    from urllib.error import HTTPError
+    recorder(monkeypatch, HTTPError("https://x", 401, "Unauthorized", {}, None))
+    with pytest.raises(notify_mod.NotifyError) as error:
+        notify_mod.send("ntfy", "https://ntfy.sh/private", "", "a", "b")
+    assert "access token" in str(error.value)
