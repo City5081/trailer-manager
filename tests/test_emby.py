@@ -289,3 +289,55 @@ def test_a_failing_poll_is_logged_and_not_raised(monkeypatch, database):
     assert "error" in result
     messages = [r["message"] for r in database.recent_log(10) if r["source"] == "emby"]
     assert any("Asking for new items failed" in m for m in messages)
+
+
+# --------------------------------------------------- against real server output
+# Captured from an actual Emby 4.8 install. The library lives on an SMB share,
+# so the paths are Windows UNC with backslashes - nothing like the /movies this
+# container sees, and the reason matching goes by folder name.
+REAL_RESPONSE = r'''
+{"Items":[
+ {"Name":"Mayday","ServerId":"978d","Id":"387823",
+  "DateCreated":"2026-09-04T05:41:17.0000000Z",
+  "Path":"\\\\192.168.1.12\\Filme\\Mayday (2026)\\Mayday (2026) - WEBDL-1080p.mkv",
+  "ProviderIds":{"Imdb":"tt28014327","Tmdb":"1137844"},
+  "IsFolder":false,"Type":"Movie","MediaType":"Video"},
+ {"Name":"Winter Spring Summer or Fall","ServerId":"978d","Id":"387774",
+  "DateCreated":"2026-09-03T11:27:32.0000000Z",
+  "Path":"\\\\192.168.1.12\\Filme\\Winter Spring Summer or Fall (2024)\\W - WEBDL-1080p.mkv",
+  "ProviderIds":{"Imdb":"tt24515124","Tmdb":"1059073"},
+  "IsFolder":false,"Type":"Movie","MediaType":"Video"}],
+ "TotalRecordCount":1775}
+'''
+
+
+def real_items():
+    return json.loads(REAL_RESPONSE)["Items"]
+
+
+def test_a_windows_share_path_still_finds_the_folder(tmp_path, database):
+    """Emby reports \\\\192.168.1.12\\Filme\\Mayday (2026)\\... and we hold
+    /movies/Mayday (2026). Only the folder name can bridge that."""
+    (tmp_path / "Mayday (2026)").mkdir()
+    lib_id = database.add_library("Filme", str(tmp_path), "movie")
+    try:
+        folder, lib = scanner_with()._local_folder_for(real_items()[0])
+        assert folder == tmp_path / "Mayday (2026)"
+        assert lib["id"] == lib_id
+    finally:
+        database.delete_library(lib_id)
+
+
+def test_the_provider_id_is_read_from_a_real_response(monkeypatch):
+    recorder(monkeypatch, [{"Items": real_items()}])
+    index = emby_mod.Emby("http://emby", "k")._build_index()
+    assert index[("tmdb", "1137844")] == "387823"
+    assert index[("imdb", "tt24515124")] == "387774"
+
+
+def test_real_timestamps_sort_the_way_we_compare_them(database):
+    """DateCreated is compared as text, which only holds because Emby writes a
+    fixed-width ISO stamp."""
+    newest, older = (i["DateCreated"] for i in real_items())
+    assert newest > older
+    assert max(i["DateCreated"] for i in real_items()) == newest
