@@ -31,9 +31,36 @@ INDEX_TTL = 600
 MISS_REBUILD_AFTER = 60
 TIMEOUT = 20
 
+# What to ask for when telling the server to re-read an item, most specific
+# first. Emby and Jellyfin disagree about some of these and answer 400 instead
+# of ignoring what they do not know, so each is tried in turn.
+REFRESH_PARAMS = (
+    {"MetadataRefreshMode": "FullRefresh", "ImageRefreshMode": "None",
+     "ReplaceAllMetadata": "false", "ReplaceAllImages": "false"},
+    {"MetadataRefreshMode": "FullRefresh", "ReplaceAllMetadata": "false"},
+    {"MetadataRefreshMode": "FullRefresh"},
+    {},
+)
+
+
+def _explanation(error):
+    """Whatever the server said about the failure.
+
+    A 400 usually carries the actual reason in the body, and throwing that away
+    turns a specific complaint into a shrug.
+    """
+    try:
+        body = error.read().decode("utf-8", "replace").strip()
+    except Exception:                                      # noqa: BLE001
+        return ""
+    body = " ".join(body.split())
+    return ". {}".format(body[:300]) if body else ""
+
 
 class EmbyError(RuntimeError):
-    pass
+    def __init__(self, message, status=None):
+        super().__init__(message)
+        self.status = status
 
 
 def normalise(url):
@@ -49,6 +76,7 @@ class Emby:
         self.api_key = (api_key or "").strip()
         self._index = {}
         self._index_time = 0.0
+        self._accepted = None          # which parameter set this server took
 
     def configured(self):
         return bool(self.base_url and self.api_key)
@@ -60,7 +88,10 @@ class Emby:
         url = "{}{}".format(self.base_url, path)
         if params:
             url += "?" + urlencode(params)
-        request = Request(url, method=method)
+        # An empty body, not no body: urllib leaves out Content-Length when
+        # data is None, and a POST without it is answered with 400 by plenty of
+        # servers and proxies.
+        request = Request(url, data=b"" if method == "POST" else None, method=method)
         request.add_header("Accept", "application/json")
         request.add_header("User-Agent", USER_AGENT)
         # Emby uses the first header, Jellyfin the second. Sending both keeps
@@ -76,11 +107,13 @@ class Emby:
                 return json.loads(body.decode("utf-8"))
         except HTTPError as e:
             if e.code in (401, 403):
-                raise EmbyError("Emby rejects the API key (HTTP {}).".format(e.code)) from e
+                raise EmbyError("Emby rejects the API key (HTTP {}).".format(e.code),
+                                e.code) from e
             if e.code == 404:
                 raise EmbyError("Emby answered 404 for {} - is the address "
-                                "correct?".format(path)) from e
-            raise EmbyError("Emby answered with HTTP {} - {}".format(e.code, e.reason)) from e
+                                "correct?".format(path), e.code) from e
+            raise EmbyError("Emby answered with HTTP {} - {}{}"
+                            .format(e.code, e.reason, _explanation(e)), e.code) from e
         except URLError as e:
             raise EmbyError("Cannot reach {} ({})".format(self.base_url, e.reason)) from e
         except ValueError as e:
@@ -146,18 +179,31 @@ class Emby:
         """Ask the server to re-read one item. True when it was told to.
 
         The NFO is local metadata, so a plain refresh picks the trailer up.
-        Images are left alone and nothing is replaced from the internet - this
-        should never undo what the user has set.
+        Nothing is replaced from the internet, so this cannot undo anything set
+        by hand.
+
+        Servers differ in which parameters they accept, and one that dislikes a
+        parameter answers 400 rather than ignoring it. So the full request is
+        tried first and quietly narrowed - a refresh that works is worth more
+        than insisting on the exact flags.
         """
         item_id = self.item_id(tmdb_id)
         if not item_id:
             return False
-        self._call("POST", "/Items/{}/Refresh".format(item_id),
-                   MetadataRefreshMode="FullRefresh",
-                   ImageRefreshMode="None",
-                   ReplaceAllMetadata="false",
-                   ReplaceAllImages="false")
-        return True
+
+        path = "/Items/{}/Refresh".format(item_id)
+        last = None
+        for attempt, params in enumerate(REFRESH_PARAMS):
+            try:
+                self._call("POST", path, **params)
+                if attempt:
+                    self._accepted = params
+                return True
+            except EmbyError as e:
+                if e.status != 400:
+                    raise
+                last = e
+        raise last
 
     def forget_index(self):
         self._index = {}

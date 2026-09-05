@@ -31,6 +31,7 @@ def recorder(monkeypatch, payloads):
             "method": request.get_method(),
             "url": request.full_url,
             "headers": {k.lower(): v for k, v in request.header_items()},
+            "data": request.data,
         })
         payload = payloads[min(len(calls) - 1, len(payloads) - 1)]
         if isinstance(payload, Exception):
@@ -375,3 +376,59 @@ def test_emby_requests_identify_themselves(monkeypatch):
     calls = recorder(monkeypatch, [{"ServerName": "x", "Version": "1"}])
     emby_mod.Emby("http://emby", "k").info()
     assert calls[0]["headers"]["user-agent"] == USER_AGENT
+
+
+# ------------------------------------------------------ telling it to refresh
+def test_a_post_carries_an_empty_body_rather_than_none(monkeypatch):
+    """urllib only sets Content-Length when there is a body object, and a POST
+    without that header is answered with 400 by plenty of servers and proxies.
+    The header itself is added while sending, so the body is what to check."""
+    calls = recorder(monkeypatch, [LIBRARY, None])
+    emby_mod.Emby("http://emby", "k").refresh("550")
+
+    post = [c for c in calls if c["method"] == "POST"][0]
+    assert post["data"] == b""
+    assert [c for c in calls if c["method"] == "GET"][0]["data"] is None
+
+
+def test_a_refused_parameter_set_is_narrowed(monkeypatch):
+    """Servers answer 400 rather than ignoring a parameter they dislike, so a
+    refresh that works beats insisting on the exact flags."""
+    from urllib.error import HTTPError
+
+    def bad_request():
+        return HTTPError("https://x", 400, "Bad Request", {}, None)
+
+    calls = recorder(monkeypatch, [LIBRARY, bad_request(), bad_request(), None])
+    assert emby_mod.Emby("http://emby", "k").refresh("550") is True
+
+    posts = [c["url"] for c in calls if c["method"] == "POST"]
+    assert len(posts) == 3
+    assert "ImageRefreshMode" in posts[0]
+    assert "ImageRefreshMode" not in posts[1]
+    assert "ReplaceAllMetadata" not in posts[2]
+
+
+def test_a_refusal_that_is_not_400_is_not_retried(monkeypatch):
+    from urllib.error import HTTPError
+    calls = recorder(monkeypatch, [LIBRARY,
+                                   HTTPError("https://x", 500, "Server Error", {}, None)])
+    with pytest.raises(emby_mod.EmbyError):
+        emby_mod.Emby("http://emby", "k").refresh("550")
+    assert len([c for c in calls if c["method"] == "POST"]) == 1
+
+
+def test_the_servers_own_explanation_reaches_the_log(monkeypatch):
+    """A 400 usually says why in the body; dropping it turns a specific
+    complaint into a shrug."""
+    import io
+    from urllib.error import HTTPError
+
+    detail = io.BytesIO(b'{"error":"ImageRefreshMode is not valid"}')
+    calls = recorder(monkeypatch, [LIBRARY,
+                                   HTTPError("https://x", 422, "Unprocessable",
+                                             {}, detail)])
+    with pytest.raises(emby_mod.EmbyError) as error:
+        emby_mod.Emby("http://emby", "k").refresh("550")
+    assert "ImageRefreshMode is not valid" in str(error.value)
+    assert len(calls) == 2
