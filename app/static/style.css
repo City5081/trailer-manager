@@ -25,16 +25,18 @@ header {
   background: var(--panel); border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 5;
 }
-/* The brand is the way back to the unfiltered list, so it is a link. */
-.brand { display: flex; align-items: center; gap: 12px;
+/* The brand is the way back to the unfiltered list, so it is a link.
+   Baseline alignment so the version sits on the same line as the title; the
+   logo is centred separately, having no baseline of its own. */
+.brand { display: flex; align-items: baseline; gap: 12px;
          color: var(--text); text-decoration: none; }
+.brand .logo { align-self: center; }
 .brand:hover strong { color: var(--accent); }
 .brand .logo { display: block; border-radius: 7px; }
 .brand strong { font-size: 17px; }
 /* Small enough to stay out of the way, present enough to answer "which
    version is actually running here?" without opening a terminal. */
-.brand .version { color: var(--muted); font-size: 11px; align-self: flex-start;
-                  margin-top: 2px; }
+.brand .version { color: var(--muted); font-size: 11px; }
 nav { display: flex; align-items: center; gap: 16px; }
 nav a { color: var(--text); text-decoration: none; }
 nav a:hover { color: var(--accent); }
