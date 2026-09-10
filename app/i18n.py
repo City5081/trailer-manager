@@ -121,6 +121,11 @@ STRINGS = {
                                   "Beschreibung und Bilder werden dann auch nicht mehr "
                                   "aktualisiert.",
         "emby.poll": "Emby nach neuen Filmen fragen (Minuten, 0 = aus)",
+        "emby.enabled": "Emby nach dem Schreiben benachrichtigen",
+        "emby.refresh_hint": "Emby liest die geänderte NFO sonst erst beim nächsten "
+                             "Bibliotheks-Scan. Abschalten, falls dein Emby Metadaten "
+                             "in die Medienordner schreibt und dabei den Trailer "
+                             "wieder überschreibt.",
         "emby.last_poll": "Zuletzt abgefragt",
         "emby.never": "noch nicht abgefragt",
         "emby.title": "Emby",
@@ -354,6 +359,11 @@ STRINGS = {
                                   "whole item, not just the trailer - title, plot and "
                                   "artwork stop being updated as well.",
         "emby.poll": "Ask Emby for new items every (minutes, 0 = off)",
+        "emby.enabled": "Tell Emby after writing",
+        "emby.refresh_hint": "Otherwise Emby only reads the changed NFO on its next "
+                             "library scan. Turn off if your Emby saves metadata into "
+                             "the media folders and overwrites the trailer while "
+                             "refreshing.",
         "emby.last_poll": "Last asked",
         "emby.never": "not asked yet",
         "emby.title": "Emby",

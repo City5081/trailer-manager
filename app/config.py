@@ -73,6 +73,7 @@ DEFAULTS = {
     "notify_service": os.environ.get("NOTIFY_SERVICE", ""),
     "notify_url": os.environ.get("NOTIFY_URL", ""),
     "notify_token": os.environ.get("NOTIFY_TOKEN", ""),
+    "emby_refresh": "1" if _bool("EMBY_REFRESH", True) else "0",
     "notify_on_new": "1" if _bool("NOTIFY_ON_NEW", True) else "0",
     "notify_on_run": "0" if not _bool("NOTIFY_ON_RUN", False) else "1",
     "notify_on_error": "1" if _bool("NOTIFY_ON_ERROR", True) else "0",

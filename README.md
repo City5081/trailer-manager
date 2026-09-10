@@ -186,9 +186,13 @@ or turns it off with `0`.
 
 **Written trailers.** Emby only reads a changed NFO on its next library scan,
 every twelve hours by default, so each written trailer is announced as it is
-written, for that one item. This always happens when a server is configured —
-writing a trailer and then leaving the server unaware of it has no upside. The
-refresh replaces
+written, for that one item. The refresh asks for `Default` mode, never
+`FullRefresh`: a full refresh sends the server back to its metadata providers,
+and a server that saves metadata into media folders then writes the NFO again
+with the trailer *it* picked — undoing the one just written. If your setup still
+manages to overwrite trailers, turn *Tell Emby after writing* off; the trailer
+is on disk either way and the next library scan picks it up. The refresh
+replaces
 nothing — images are left alone and no internet provider is asked — so it cannot
 undo anything set by hand. If the server is down or the key is wrong, the trailer
 is still written and a warning goes to the log.

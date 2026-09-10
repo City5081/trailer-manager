@@ -34,12 +34,17 @@ TIMEOUT = 20
 # What to ask for when telling the server to re-read an item, most specific
 # first. Emby and Jellyfin disagree about some of these and answer 400 instead
 # of ignoring what they do not know, so each is tried in turn.
+#
+# The mode is "Default" and must stay that way. "FullRefresh" sends the server
+# back to its metadata providers, and with NFO saving enabled it then writes the
+# file again with the trailer IT picked - undoing the one we had just written a
+# second earlier. "Default" reads what is on disk and only fills in what is
+# missing, which is exactly the point: notice the trailer, change nothing else.
 REFRESH_PARAMS = (
-    {"MetadataRefreshMode": "FullRefresh", "ImageRefreshMode": "None",
+    {"MetadataRefreshMode": "Default", "ImageRefreshMode": "None",
      "ReplaceAllMetadata": "false", "ReplaceAllImages": "false"},
-    {"MetadataRefreshMode": "FullRefresh", "ReplaceAllMetadata": "false"},
-    {"MetadataRefreshMode": "FullRefresh"},
-    {},
+    {"MetadataRefreshMode": "Default", "ReplaceAllMetadata": "false"},
+    {"MetadataRefreshMode": "Default"},
 )
 
 

@@ -36,6 +36,8 @@
   <label>{{ t('emby.api_key') }}<input name="emby_api_key" value="{{ values.emby_api_key }}" autocomplete="off"></label>
   <p class="hint">{{ t('emby.api_key_hint') }}</p>
   <label>{{ t('emby.poll') }}<input name="emby_poll_minutes" value="{{ values.emby_poll_minutes }}" size="6"></label>
+  <label class="inline"><input type="checkbox" name="emby_refresh" {% if values.emby_refresh %}checked{% endif %}> {{ t('emby.enabled') }}</label>
+  <p class="hint">{{ t('emby.refresh_hint') }}</p>
   <p class="hint"><b>{{ t('emby.last_poll') }}:</b>
      <span class="mono">{{ last_poll or t('emby.never') }}</span></p>
 

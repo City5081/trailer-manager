@@ -90,11 +90,16 @@ class Scanner:
     def notify_media_server(self, row, tmdb_id):
         """Ask Emby to re-read one item. Never lets a failure reach the caller.
 
-        Always done when a server is configured - there is no reason to write a
-        trailer and then leave the server unaware of it for twelve hours. The
-        trailer is already on disk at this point, so a server that is off or
+        Switchable, because there is a case where it does harm: a server set to
+        save metadata into media folders may write the NFO back during the
+        refresh, and if it goes to its providers while doing so it replaces the
+        trailer we just wrote with its own.
+
+        The trailer is already on disk at this point, so a server that is off or
         misconfigured must not turn a successful write into an error.
         """
+        if not self._flag(None, "emby_refresh", "1"):
+            return False
         server = self.media_server()
         if not server.configured():
             return False

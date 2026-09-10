@@ -555,7 +555,7 @@ def settings_page():
                  "recheck_days", "emby_poll_minutes", "ui_language",
                  "emby_url", "emby_api_key"]
     keys_flag = ["keep_format", "backup", "lockdata", "scan_on_start",
-                 "overwrite_existing"]
+                 "overwrite_existing", "emby_refresh"]
     if request.method == "POST":
         for key in keys_text:
             db.set_setting(key, request.form.get(key, "").strip())

@@ -90,11 +90,24 @@ def test_refresh_targets_the_right_item(monkeypatch):
     refresh = calls[1]
     assert refresh["method"] == "POST"
     assert refresh["url"].startswith("http://emby/Items/abc123/Refresh?")
-    assert "MetadataRefreshMode=FullRefresh" in refresh["url"]
     # Nothing may be replaced - a refresh must not undo what the user set.
     assert "ReplaceAllMetadata=false" in refresh["url"]
     assert "ReplaceAllImages=false" in refresh["url"]
     assert "ImageRefreshMode=None" in refresh["url"]
+
+
+def test_the_refresh_never_asks_for_a_full_one(monkeypatch):
+    """FullRefresh sends the server back to its metadata providers. With NFO
+    saving enabled it then writes the file again with the trailer it picked,
+    undoing the one we wrote a second earlier - which is exactly what happened
+    to Vaiana (2026): ours went in, Emby's came back out."""
+    for params in emby_mod.REFRESH_PARAMS:
+        assert params.get("MetadataRefreshMode") == "Default", params
+
+    calls = recorder(monkeypatch, [LIBRARY, None])
+    emby_mod.Emby("http://emby", "k").refresh("550")
+    assert "FullRefresh" not in calls[1]["url"]
+    assert "MetadataRefreshMode=Default" in calls[1]["url"]
 
 
 def test_an_unknown_movie_is_reported_not_refreshed(monkeypatch):
@@ -407,6 +420,9 @@ def test_a_refused_parameter_set_is_narrowed(monkeypatch):
     assert "ImageRefreshMode" in posts[0]
     assert "ImageRefreshMode" not in posts[1]
     assert "ReplaceAllMetadata" not in posts[2]
+    # Narrowing must never drop the mode itself and fall back to the
+    # server's own default, which may well be a full refresh.
+    assert all("MetadataRefreshMode=Default" in url for url in posts)
 
 
 def test_a_refusal_that_is_not_400_is_not_retried(monkeypatch):
@@ -432,3 +448,12 @@ def test_the_servers_own_explanation_reaches_the_log(monkeypatch):
         emby_mod.Emby("http://emby", "k").refresh("550")
     assert "ImageRefreshMode is not valid" in str(error.value)
     assert len(calls) == 2
+
+
+def test_the_refresh_can_be_switched_off(monkeypatch):
+    """It was made unconditional on the grounds that there is no reason to skip
+    it. Vaiana (2026) was that reason."""
+    calls = recorder(monkeypatch, [LIBRARY, None])
+    scanner = scanner_with(emby_refresh="0")
+    assert scanner.notify_media_server({"title": "X"}, "550") is False
+    assert calls == []
