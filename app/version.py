@@ -1,6 +1,6 @@
 """Where the application says who it is."""
 
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 
 # Sent with every outgoing request. Without it urllib announces itself as
 # "Python-urllib/3.x", which some reverse proxies and CDNs answer with a flat
