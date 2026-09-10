@@ -134,3 +134,12 @@ def test_an_explicit_order_still_wins(client):
 def test_a_nonsense_sort_key_falls_back(client):
     sign_in(client)
     assert client.get("/?sort=;DROP TABLE movies&dir=sideways").status_code == 200
+
+
+def test_the_running_version_is_on_every_page(client):
+    """Answers 'which version is actually running here' without a terminal."""
+    from version import VERSION
+
+    sign_in(client)
+    for path in ("/", "/settings", "/log"):
+        assert VERSION in client.get(path).get_data(as_text=True)

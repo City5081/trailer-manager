@@ -31,6 +31,10 @@ header {
 .brand:hover strong { color: var(--accent); }
 .brand .logo { display: block; border-radius: 7px; }
 .brand strong { font-size: 17px; }
+/* Small enough to stay out of the way, present enough to answer "which
+   version is actually running here?" without opening a terminal. */
+.brand .version { color: var(--muted); font-size: 11px; align-self: flex-start;
+                  margin-top: 2px; }
 nav { display: flex; align-items: center; gap: 16px; }
 nav a { color: var(--text); text-decoration: none; }
 nav a:hover { color: var(--accent); }

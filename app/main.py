@@ -23,6 +23,7 @@ import db
 import emby as emby_mod
 import i18n
 import notify as notify_mod
+from version import VERSION
 import nfo
 import scanner as scanner_mod
 import tmdb
@@ -292,6 +293,7 @@ def nav_libraries():
 def inject_globals():
     return {
         "t": t,
+        "version": VERSION,
         "csrf_token": csrf_token,
         "nav_libraries": nav_libraries(),
         "active_library": _optional_int(request.args.get("library")),
