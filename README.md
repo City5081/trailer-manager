@@ -218,11 +218,12 @@ wants one, a token:
 Four things can be announced, each on its own: a newly added item getting its
 trailer, a summary after each automatic run, errors, and warnings.
 
-Warnings are picked up from the log itself rather than from a handful of chosen
-places, so anything worth a warning reaches you — a refresh Emby refused, an NFO
-that never appeared, a run skipped for want of an API key. Repeats are held back
-for ten minutes and there is a ceiling per hour, because a share that goes away
-warns once per movie. Individual messages are
+Errors and warnings are picked up from the log itself rather than from a handful
+of chosen places, so anything worth reporting reaches you — a refresh Emby
+refused, an NFO that vanished between the scan and the write, a run skipped for
+want of an API key. Repeats are held back for ten minutes and there is a ceiling
+per hour, because a share that goes away fails once per movie. The run summary
+still arrives on top of that when a run had failures. Individual messages are
 only sent for items the media server reported as new, so a run across a whole
 library reports once rather than several hundred times.
 

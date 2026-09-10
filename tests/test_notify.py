@@ -437,3 +437,58 @@ def test_a_broken_hook_cannot_break_logging(database):
         assert any("still recorded" in r["message"] for r in database.recent_log(5))
     finally:
         db_mod.set_log_hook(None)
+
+
+def test_an_error_outside_a_run_is_announced(monkeypatch, database, target):
+    """This is what went missing: errors were only announced in the summary at
+    the end of a run, so one from an item the media server just reported - a
+    vanished NFO, say - reached nobody."""
+    seen = sent_messages(monkeypatch)
+    scanner = scanner_with(notify_on_error="1")
+
+    scanner.on_log("error",
+                   "Zurueck in die Zukunft: [Errno 2] No such file or directory",
+                   "write")
+    assert wait_for(lambda: seen)
+    title, message, priority = seen[0]
+    assert title == "Error"
+    assert "No such file" in message
+    assert priority == "high"
+
+
+def test_errors_and_warnings_follow_their_own_switches(monkeypatch, database, target):
+    seen = sent_messages(monkeypatch)
+
+    only_errors = scanner_with(notify_on_error="1", notify_on_warning="0")
+    only_errors.on_log("warn", "a warning", "emby")
+    only_errors.on_log("error", "an error", "write")
+    assert wait_for(lambda: seen)
+    assert [message for _t, message, _p in seen] == ["an error"]
+
+    seen.clear()
+    only_warnings = scanner_with(notify_on_error="0", notify_on_warning="1")
+    only_warnings.on_log("error", "another error", "write")
+    only_warnings.on_log("warn", "another warning", "emby")
+    assert wait_for(lambda: seen)
+    assert [message for _t, message, _p in seen] == ["another warning"]
+
+
+def test_a_run_full_of_errors_is_still_capped(monkeypatch, database, target):
+    """Errors during a run carry the movie title, so they are all different -
+    only the hourly ceiling holds them back."""
+    import scanner as scanner_mod
+
+    seen = sent_messages(monkeypatch)
+    scanner = scanner_with(notify_on_error="1")
+    for n in range(40):
+        scanner.on_log("error", "Movie {}: permission denied".format(n), "write")
+    assert wait_for(lambda: len(seen) >= scanner_mod.WARNING_BURST)
+    assert len(seen) == scanner_mod.WARNING_BURST
+
+
+def test_an_ok_entry_never_notifies(monkeypatch, database, target):
+    seen = sent_messages(monkeypatch)
+    scanner = scanner_with(notify_on_error="1", notify_on_warning="1")
+    scanner.on_log("ok", "Vaiana: trailer written", "auto")
+    scanner.on_log("info", "Library read", "scan")
+    assert not wait_for(lambda: seen, seconds=0.3)

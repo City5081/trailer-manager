@@ -24,6 +24,10 @@ import tmdb
 WARNING_REPEAT_AFTER = 600
 WARNING_BURST = 10
 
+# Which log levels are worth telling someone about, and under which switch.
+LEVEL_EVENTS = {"warn": "on_warning", "error": "on_error"}
+LEVEL_TITLES = {"warn": "Warning", "error": "Error"}
+
 
 def _row_value(row, key):
     """Read a column that may not exist on this row object."""
@@ -114,30 +118,37 @@ class Scanner:
 
     # ---------------------------------------------------------- notifications
     def on_log(self, level, message, source):
-        """Turn a logged warning into a notification.
+        """Turn a logged warning or error into a notification.
 
         Hooked into the logging so nothing has to be remembered at each of the
-        places that can warn. Runs in its own thread: this is called from
-        whatever was working at the time, including a web request, and a slow
-        or dead notification service must not hold that up.
+        places that can go wrong. Errors used to be announced only in the
+        summary at the end of a run, which meant an error outside a run - one
+        from an item the media server just reported, say - was announced
+        nowhere at all.
+
+        Runs in its own thread: this is called from whatever was working at the
+        time, including a web request, and a slow or dead notification service
+        must not hold that up.
         """
-        if level != "warn" or source == "notify":
+        when = LEVEL_EVENTS.get(level)
+        if when is None or source == "notify":
             return          # a failing notification warns; that must not loop
-        if not self._flag(None, "notify_on_warning", "0"):
+        if not self._flag(None, "notify_" + when, "0"):
             return
-        if not self._warning_is_new(message):
+        if not self._alert_is_new(message):
             return
         threading.Thread(
             target=self.notify,
-            args=("Warning", message),
-            kwargs={"priority": notify_mod.HIGH, "when": "on_warning"},
+            args=(LEVEL_TITLES[level], message),
+            kwargs={"priority": notify_mod.HIGH, "when": when},
             daemon=True).start()
 
-    def _warning_is_new(self, message):
+    def _alert_is_new(self, message):
         """Keep a broken share from sending a few hundred alerts.
 
-        The same warning is repeated at most every ten minutes, and there is a
-        ceiling per hour regardless of how varied the warnings are.
+        The same message is repeated at most every ten minutes, and there is a
+        ceiling per hour regardless of how varied the messages are - errors
+        during a run differ per movie, so only the ceiling holds them back.
         """
         now = time.time()
         with self._warn_lock:
