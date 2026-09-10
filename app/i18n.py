@@ -60,6 +60,7 @@ STRINGS = {
         "table.state": "Status",
         "table.checked": "Geprüft",
         "table.changed": "Trailer gesetzt",
+        "table.changed_short": "Gesetzt",
         "table.actions": "Aktionen",
         "table.empty": "Keine Filme gefunden. Zuerst die Bibliothek einlesen.",
 
@@ -303,6 +304,7 @@ STRINGS = {
         "table.state": "State",
         "table.checked": "Checked",
         "table.changed": "Trailer set",
+        "table.changed_short": "Set",
         "table.actions": "Actions",
         "table.empty": "No movies yet. Scan the library first.",
 

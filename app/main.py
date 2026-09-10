@@ -39,17 +39,30 @@ SCANNER = None
 MIN_PASSWORD_LENGTH = 8
 
 
-@app.template_filter("ts")
-def format_ts(value):
-    """Make a timestamp readable, in the notation of the chosen language."""
+def _stamp(value, pattern_de, pattern_en):
     if not value:
         return ""
     try:
         stamp = time.localtime(float(value))
     except (TypeError, ValueError):
         return ""
-    pattern = "%d.%m.%Y %H:%M:%S" if current_lang() == "de" else "%Y-%m-%d %H:%M:%S"
-    return time.strftime(pattern, stamp)
+    return time.strftime(pattern_de if current_lang() == "de" else pattern_en, stamp)
+
+
+@app.template_filter("ts")
+def format_ts(value):
+    """A timestamp in the notation of the chosen language.
+
+    Without seconds: nothing here happens twice within a minute in a way that
+    matters, and the column has to fit on a phone.
+    """
+    return _stamp(value, "%d.%m.%Y %H:%M", "%Y-%m-%d %H:%M")
+
+
+@app.template_filter("ts_short")
+def format_ts_short(value):
+    """The same moment, narrow enough for a phone: no year."""
+    return _stamp(value, "%d.%m. %H:%M", "%m-%d %H:%M")
 
 
 # --------------------------------------------------------------------- settings
@@ -429,10 +442,15 @@ def index():
     state = request.args.get("state", "").strip()
     only_missing = request.args.get("missing") == "1"
     library_id = _optional_int(request.args.get("library"))
-    sort = request.args.get("sort", "title")
+    # What was just done is the most interesting thing on the page, so the
+    # newest trailers come first unless something else is asked for.
+    sort = request.args.get("sort", "changed")
     if sort not in db.SORT_COLUMNS:
-        sort = "title"
-    direction = "desc" if request.args.get("dir") == "desc" else "asc"
+        sort = "changed"
+    default_dir = "desc" if sort in ("changed", "checked", "year") else "asc"
+    direction = request.args.get("dir", default_dir)
+    if direction not in ("asc", "desc"):
+        direction = default_dir
     page = _positive_int(request.args.get("page"), 1)
     per_page = 100
     rows, total = db.list_movies(search or None, state or None, only_missing,

@@ -39,7 +39,7 @@ anime films looking for Japanese trailers, and one for series, side by side.
 - **Watches Emby** for newly added items and gives them a trailer within
   minutes, without anything to configure on the Emby side.
 - **Web interface** with a movie list, search, filters, sortable columns —
-  including *trailer set*, so the newest additions come first — per-movie lookup
+  sorted by *trailer set* by default, so the newest additions come first — per-movie lookup
   and manual editing of the link; every trailer can be previewed on YouTube.
 - **Login** with username and password.
 - **Bilingual** German/English, switchable in the header.

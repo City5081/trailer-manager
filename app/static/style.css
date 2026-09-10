@@ -144,6 +144,9 @@ footer {
 .lvl-ok td { color: var(--ok); }
 
 .muted { color: var(--muted); }
+.nowrap { white-space: nowrap; }
+/* Same value, two widths: the year is dropped where space is short. */
+.narrow { display: none; }
 .url { background: #12161d; border: 1px solid var(--line); border-radius: 7px;
        padding: 10px 12px; }
 .steps { margin: 6px 0 4px; padding-left: 20px; color: var(--text); font-size: 13px; }
@@ -188,7 +191,9 @@ footer {
 
   /* Year, TMDB id and the raw video id are the least useful on a phone. */
   .hide-sm { display: none; }
-  table { min-width: 520px; }
+  .wide { display: none; }
+  .narrow { display: inline; }
+  table { min-width: 560px; }
   th, td { padding: 7px 8px; }
   .libhead .mono { display: none; }
 }
@@ -197,5 +202,5 @@ footer {
   .stats div, .libcard .stats div { flex: 1 1 calc(50% - 8px); }
   /* The header already filters by library, so that column can go too. */
   .hide-xs { display: none; }
-  table { min-width: 430px; }
+  table { min-width: 470px; }
 }

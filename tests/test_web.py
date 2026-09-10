@@ -113,3 +113,24 @@ def test_a_missing_referrer_falls_back_to_the_start_page(client):
     page = client.get("/").get_data(as_text=True)
     response = client.post("/scan", data={"csrf": token_from(page)})
     assert response.headers["Location"] == "/"
+
+
+def test_the_newest_trailers_are_the_default_order(client):
+    """What the tool just did is the most interesting thing on the page."""
+    sign_in(client)
+    page = client.get("/").get_data(as_text=True)
+    # The header link offers the opposite direction, which is how you can tell
+    # which way the page is currently sorted.
+    assert "sort=changed&amp;dir=asc" in page
+    assert 'class="sort on"' in page
+
+
+def test_an_explicit_order_still_wins(client):
+    sign_in(client)
+    page = client.get("/?sort=title").get_data(as_text=True)
+    assert "sort=title&amp;dir=desc" in page       # title defaults to ascending
+
+
+def test_a_nonsense_sort_key_falls_back(client):
+    sign_in(client)
+    assert client.get("/?sort=;DROP TABLE movies&dir=sideways").status_code == 200

@@ -45,3 +45,15 @@ def test_hideable_columns_are_marked_in_the_movie_list():
     assert index.count("hide-sm") >= 6      # three columns, header and body
     assert index.count("hide-xs") >= 2
     assert "tablewrap" in index
+
+
+def test_the_trailer_column_survives_on_a_phone():
+    """It is the default sort order, so hiding it below 860px would leave the
+    page sorted by a column you cannot see."""
+    index = (TEMPLATES / "index.html").read_text(encoding="utf-8")
+    changed = [line for line in index.split("\n") if "table.changed" in line]
+    assert changed and "hide-sm" not in changed[0]
+    assert "ts_short" in index
+
+    css = CSS.read_text(encoding="utf-8")
+    assert ".narrow" in css and ".wide" in css
