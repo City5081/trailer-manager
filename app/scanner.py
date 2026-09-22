@@ -506,7 +506,7 @@ class Scanner:
         title = item.get("Name") or "?"
         tmdb_id = (item.get("ProviderIds") or {}).get("Tmdb")
 
-        rows = db.find_by_tmdb(tmdb_id) if tmdb_id else []
+        rows = self._still_on_disk(db.find_by_tmdb(tmdb_id) if tmdb_id else [])
         if not rows:
             folder, lib = self._local_folder_for(item)
             if folder is None:
@@ -528,6 +528,25 @@ class Scanner:
                 self.notify("No trailer found", "{}\n{}".format(row["title"], message),
                             when="on_new")
         return True
+
+    def _still_on_disk(self, rows):
+        """Drop entries whose NFO is no longer where we recorded it.
+
+        A media server reports an item as new after its files have been renamed,
+        and the database still holds the old name - /movies/The Goonies (1985)/
+        Die Goonies (1985).nfo, say, once the file inside was renamed to match
+        its folder. Writing to that path fails with "no such file". Forgetting
+        the entry lets the folder be read again, which picks up the new name.
+        """
+        keep = []
+        for row in rows:
+            if Path(row["path"]).exists():
+                keep.append(row)
+                continue
+            db.log("info", "{}: the NFO is no longer at {} - reading its folder again"
+                   .format(row["title"], row["path"]), "scan")
+            db.delete_movie(row["path"])
+        return keep
 
     def _local_folder_for(self, item):
         """Match an Emby item to a folder in our libraries.
@@ -605,7 +624,7 @@ class Scanner:
         """
         target = Path(path)
         folder = target if target.is_dir() else target.parent
-        rows = db.find_by_folder(str(folder))
+        rows = self._still_on_disk(db.find_by_folder(str(folder)))
         if rows:
             return rows
 
@@ -619,7 +638,7 @@ class Scanner:
 
         if kind == "tv":
             for parent in _ancestors(folder, root):
-                rows = db.find_by_folder(str(parent))
+                rows = self._still_on_disk(db.find_by_folder(str(parent)))
                 if rows:
                     return rows
             for parent in _ancestors(folder, root):

@@ -207,3 +207,43 @@ def test_a_late_nfo_is_picked_up_after_waiting(tmp_path, library, monkeypatch):
     monkeypatch.setattr(scanner_mod.time, "sleep", fake_sleep)
     rows = s._wait_for_nfo(str(folder / "Late Film.mkv"), library, "88", "Late Film")
     assert [r["title"] for r in rows] == ["Late Film"]
+
+
+def test_a_renamed_nfo_is_found_again_instead_of_written_to_its_old_path(tmp_path, library):
+    """Exactly the Goonies case: the folder is /movies/The Goonies (1985) while
+    the database still points at Die Goonies (1985).nfo inside it. Emby reports
+    the item as new after the rename, we find it by TMDB id, and writing to the
+    recorded path fails with 'no such file'."""
+    folder = tmp_path / "The Goonies (1985)"
+    folder.mkdir()
+    old = folder / "Die Goonies (1985) - WEBDL-1080p.nfo"
+    old.write_text('<movie><title>Die Goonies</title>'
+                   '<uniqueid type="tmdb">9340</uniqueid></movie>', encoding="utf-8")
+
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
+    assert db.get_movie(str(old)) is not None
+
+    # Radarr renames the file to match the folder.
+    new = folder / "The Goonies (1985) - WEBDL-1080p.nfo"
+    old.rename(new)
+
+    item = {"Name": "Die Goonies", "Type": "Movie",
+            "ProviderIds": {"Tmdb": "9340"},
+            "Path": "/mnt/user/Filme/The Goonies (1985)/The Goonies (1985).mkv"}
+
+    stale = db.find_by_tmdb("9340")
+    assert [r["path"] for r in stale] == [str(old)]      # the database is behind
+    assert s._still_on_disk(stale) == []                 # and the entry is dropped
+
+    rows = s._rows_for_path(str(folder), library)
+    assert [r["path"] for r in rows] == [str(new)]
+    assert db.get_movie(str(old)) is None                # no stale row left over
+
+
+def test_an_entry_that_is_still_there_is_kept(tmp_path, library, movie_nfo):
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
+    rows = db.find_by_folder(str(movie_nfo.parent))
+    assert rows
+    assert [r["path"] for r in s._still_on_disk(rows)] == [str(movie_nfo)]

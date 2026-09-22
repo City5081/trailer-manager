@@ -336,6 +336,12 @@ def known_files(library_id=None):
         return {r["path"]: (r["mtime"], r["size"]) for r in con.execute(sql, params)}
 
 
+def delete_movie(path):
+    """Forget one entry, e.g. after its file was renamed away."""
+    with connect() as con:
+        con.execute("DELETE FROM movies WHERE path=?", (path,))
+
+
 def delete_missing(paths_present, library_id=None):
     """Drop entries whose NFO is gone.
 
