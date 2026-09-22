@@ -22,6 +22,15 @@
 
 <div class="card">
   <h2>{{ t('log.title') }}</h2>
+  <div class="toolbar">
+    <a class="btn small {% if not level %}primary{% endif %}"
+       href="{{ url_for('log_page') }}">{{ t('filter.all') }}</a>
+    {% for name in levels %}
+      <a class="btn small {% if level == name %}primary{% endif %}"
+         href="{{ url_for('log_page', level=name) }}">{{ t('log.level_' + name) }}{%
+         if counts.get(name) %} ({{ counts[name] }}){% endif %}</a>
+    {% endfor %}
+  </div>
   <div class="tablewrap">
 <table>
     <thead><tr><th>{{ t('log.time') }}</th><th>{{ t('log.level') }}</th><th>{{ t('log.source') }}</th><th>{{ t('log.message') }}</th></tr></thead>

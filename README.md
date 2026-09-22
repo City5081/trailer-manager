@@ -38,6 +38,8 @@ anime films looking for Japanese trailers, and one for series, side by side.
 - **Schedule** at a configurable interval, plus a run at startup.
 - **Watches Emby** for newly added items and gives them a trailer within
   minutes, without anything to configure on the Emby side.
+- **Preview** before a run: what it would write, without writing anything —
+  neither to the files nor to the database.
 - **Web interface** with a movie list, search, filters, sortable columns —
   sorted by *trailer set* by default, so the newest additions come first — per-movie lookup
   and manual editing of the link; every trailer can be previewed on YouTube.
@@ -246,6 +248,17 @@ An automatic run picks up:
 - entries without a trailer entry
 - entries that came back empty, once the last check is older than the recheck
   interval of their library (TMDB gains trailers all the time)
+
+*Preview* answers what a run is about to do before it does it. Nothing is
+written during one: it takes the entries that are due, looks up the first
+twenty-five for real and reports what would change. A full preview would cost
+as much as the run it is meant to make safe, so it stops there and reports the
+total.
+
+The movie list carries the reason an entry is in its state, and *problems only*
+narrows it to the ones worth acting on — an entry TMDB simply has no trailer for
+is an answer, not a fault. The log can be filtered by level, with the count of
+each shown on the filter itself.
 
 Finished entries are left alone — unless *recheck movies that are already done*
 is set, or you press *Recheck all*. A single library can be rechecked on its own

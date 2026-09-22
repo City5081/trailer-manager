@@ -193,3 +193,59 @@ def test_an_unknown_sort_key_cannot_reach_the_query():
     injected = db.order_clause("m.title; DROP TABLE movies", "asc")
     assert "DROP" not in injected
     assert injected == db.order_clause("title", "asc")
+
+
+def test_a_preview_writes_nothing_at_all(movie_nfo, library, monkeypatch):
+    """A run touches hundreds of files; seeing what it is about to do must not
+    be a way of doing it."""
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
+    monkeypatch.setattr(tmdb, "fetch_videos", german_trailer)
+
+    before_file = movie_nfo.read_bytes()
+    before_row = dict(db.get_movie(str(movie_nfo)))
+
+    status, message = s.process_movie(db.get_movie(str(movie_nfo)), preview=True)
+
+    assert status == "would_write"
+    assert "dQw4w9WgXcQ" in message              # what it would put there
+    assert movie_nfo.read_bytes() == before_file
+    after = dict(db.get_movie(str(movie_nfo)))
+    assert after["state"] == before_row["state"]
+    assert after["trailer"] == before_row["trailer"]
+    assert after["last_checked"] == before_row["last_checked"]
+
+
+def test_a_preview_reports_the_total_and_a_sample(tmp_path, library, monkeypatch):
+    data = {"title": "X", "year": "", "tmdb": "1", "imdb": None, "trailer": "",
+            "kind": "movie"}
+    for n in range(8):
+        db.upsert_movie(str(tmp_path / "{}.nfo".format(n)), str(tmp_path),
+                        dict(data, title="Film {}".format(n)), 1.0, 10,
+                        library_id=library["id"])
+    monkeypatch.setattr(tmdb, "fetch_videos", german_trailer)
+
+    result = scanner_mod.Scanner(settings()).preview(limit=3,
+                                                     library_id=library["id"])
+    assert result["total"] >= 8
+    assert result["shown"] == 3
+    assert len(result["entries"]) == 3
+    assert all(e["status"] == "would_write" for e in result["entries"])
+
+
+def test_a_preview_reports_failures_without_recording_them(tmp_path, library,
+                                                           monkeypatch):
+    data = {"title": "Kaputt", "year": "", "tmdb": "1", "imdb": None,
+            "trailer": "", "kind": "movie"}
+    path = str(tmp_path / "broken.nfo")
+    db.upsert_movie(path, str(tmp_path), data, 1.0, 10, library_id=library["id"])
+
+    def refuse(*a, **k):
+        raise tmdb.TmdbError("TMDB rejects the API key (HTTP 401).")
+
+    monkeypatch.setattr(tmdb, "fetch_videos", refuse)
+    result = scanner_mod.Scanner(settings()).preview(limit=5,
+                                                     library_id=library["id"])
+    failed = [e for e in result["entries"] if e["status"] == "error"]
+    assert failed and "401" in failed[0]["message"]
+    assert db.get_movie(path)["state"] != "error"      # nothing was recorded

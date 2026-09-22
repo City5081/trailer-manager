@@ -407,6 +407,9 @@ def pending_movies(recheck_seconds, overwrite_existing=False, limit=None,
                                  "library": library_id}).fetchall()
 
 
+# A filter that spans the states you would actually want to do something about.
+PROBLEM_STATES_KEY = "problem"
+
 # What the column headers may sort by. A whitelist, because the value comes
 # straight out of the address bar and goes into an ORDER BY.
 SORT_COLUMNS = {
@@ -438,7 +441,11 @@ def list_movies(search=None, state=None, only_missing=False, limit=500, offset=0
     if search:
         where.append("(m.title LIKE :s OR m.folder LIKE :s)")
         params["s"] = "%{}%".format(search)
-    if state:
+    if state == PROBLEM_STATES_KEY:
+        # The states worth acting on. "no_trailer" is not one of them: a film
+        # TMDB has nothing for is an answer, not a fault.
+        where.append("m.state IN ('error', 'no_id')")
+    elif state:
         where.append("m.state = :state")
         params["state"] = state
     if only_missing:
@@ -525,6 +532,14 @@ def log(level, message, source="app"):
             hook(level, text, source)
         except Exception:                                  # noqa: BLE001
             pass            # logging must not fail because a hook did
+
+
+def log_counts():
+    """How many entries of each level - shown on the filter itself, so the
+    number of errors is visible without clicking through to them."""
+    with connect() as con:
+        return {r["level"]: r["c"] for r in con.execute(
+            "SELECT level, COUNT(*) c FROM log GROUP BY level")}
 
 
 def recent_log(limit=200, level=None):

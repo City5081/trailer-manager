@@ -357,9 +357,15 @@ class Scanner:
                 "into the media folders.".format(name, root, len(entries), looked_for))
 
     # ------------------------------------------------------------- single entry
-    def process_movie(self, row, force=False):
+    def process_movie(self, row, force=False, preview=False):
         """Look an entry up on TMDB and write the NFO.
-        Returns (status, message)."""
+        Returns (status, message).
+
+        With `preview` nothing is written at all - not the file, not the
+        database - and the would-be link comes back as the message under the
+        status "would_write". A run touches hundreds of files at once, and
+        being able to see what it is about to do costs one flag.
+        """
         lib = db.get_library(_row_value(row, "library_id"))
         kind = _row_value(lib, "kind") or "movie"
         api_key = self._api_key()
@@ -371,29 +377,32 @@ class Scanner:
             if not tmdb_id and row["imdb_id"]:
                 tmdb_id = tmdb.lookup_by_imdb(row["imdb_id"], api_key, kind)
             if not tmdb_id:
-                db.mark_result(path, "no_id", "No TMDB or IMDb id in the NFO")
+                if not preview:
+                    db.mark_result(path, "no_id", "No TMDB or IMDb id in the NFO")
                 return "no_id", "No TMDB or IMDb id in the NFO"
 
             videos = tmdb.fetch_videos(tmdb_id, api_key, langs, kind)
             best = tmdb.pick_best(videos, langs)
         except tmdb.TmdbError as e:
-            db.mark_result(path, "error", str(e))
-            db.log("error", "{}: {}".format(row["title"], e), "tmdb")
+            if not preview:
+                db.mark_result(path, "error", str(e))
+                db.log("error", "{}: {}".format(row["title"], e), "tmdb")
             return "error", str(e)
 
         # A link that was already in the NFO came from Emby, so its language is
         # unknown to us. Ask TMDB about it while we have the video list anyway -
         # that is what fills the language column for an existing library.
         existing_id = nfo.video_id_from(row["trailer"])
-        if existing_id and not row["trailer_lang"]:
+        if existing_id and not row["trailer_lang"] and not preview:
             existing_lang = tmdb.language_of(videos, existing_id)
             if existing_lang:
                 db.note_trailer_lang(path, existing_lang)
 
         if not best:
-            db.mark_result(path, "no_trailer",
-                           "No trailer in {}".format(", ".join(langs)))
-            return "no_trailer", "No trailer in {}".format(", ".join(langs))
+            message = "No trailer in {}".format(", ".join(langs))
+            if not preview:
+                db.mark_result(path, "no_trailer", message)
+            return "no_trailer", message
 
         fmt = self.setting_for(lib, "link_format", "emby")
         if self._flag(lib, "keep_format", "1") and row["trailer"]:
@@ -401,9 +410,13 @@ class Scanner:
         value = nfo.format_link(best["key"], fmt)
 
         if value == (row["trailer"] or "") and not force:
-            db.mark_result(path, "ok", "Already up to date", trailer=value,
-                           trailer_lang=best.get("lang"), written=True)
+            if not preview:
+                db.mark_result(path, "ok", "Already up to date", trailer=value,
+                               trailer_lang=best.get("lang"), written=True)
             return "ok", "Already up to date"
+
+        if preview:
+            return "would_write", value
 
         try:
             nfo.write_trailer(Path(path), value,
@@ -422,6 +435,36 @@ class Scanner:
             row["title"], best.get("lang"), best["key"]), "auto")
         self.notify_media_server(row, tmdb_id)
         return "ok", best["key"]
+
+    def preview(self, limit=25, library_id=None, force=False):
+        """What a run would do, without doing it.
+
+        The library is not read again and nothing is written; the entries that
+        are due are taken as they stand and the first few are looked up for
+        real. A full preview would cost exactly as much as the run it is meant
+        to make safe, so it stops after `limit` and reports the total.
+        """
+        rows = []
+        overwrite = force or self._flag(None, "overwrite_existing")
+        libraries = db.list_libraries(only_enabled=True)
+        if library_id is not None:
+            libraries = [lib for lib in libraries if lib["id"] == library_id]
+        for lib in libraries:
+            rows.extend(db.pending_movies(self._recheck_seconds(lib), overwrite,
+                                          library_id=lib["id"]))
+
+        entries = []
+        for row in rows[:limit]:
+            status, message = self.process_movie(row, force=force, preview=True)
+            entries.append({
+                "title": row["title"] or row["folder"],
+                "path": row["path"],
+                "library": _row_value(row, "library_name") or "",
+                "current": row["trailer"] or "",
+                "status": status,
+                "message": message,
+            })
+        return {"total": len(rows), "shown": len(entries), "entries": entries}
 
     def candidates_for(self, row):
         """Every trailer of an entry - for picking one by hand in the interface."""

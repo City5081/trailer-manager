@@ -26,6 +26,7 @@
   <form method="post" action="{{ url_for('scan_only') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button {% if busy %}disabled{% endif %}>{{ t('action.scan') }}</button></form>
   <form method="post" action="{{ url_for('run_now') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="primary" {% if busy %}disabled{% endif %}>{{ t('action.run') }}</button></form>
   <form method="post" action="{{ url_for('run_now') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="force" value="1"><button {% if busy %}disabled{% endif %}>{{ t('action.run_force') }}</button></form>
+  <a class="btn" href="{{ url_for('preview', library=library_id) }}">{{ t('preview.button') }}</a>
   {% if busy %}<form method="post" action="{{ url_for('stop_run') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="danger">{{ t('action.stop') }}</button></form>{% endif %}
 </div>
 
@@ -75,6 +76,7 @@
     <th class="hide-sm">{{ t('table.trailer') }}</th>
     <th>{{ sortable('lang', t('table.lang')) }}</th>
     <th>{{ sortable('state', t('table.state')) }}</th>
+    <th class="hide-sm">{{ t('table.message') }}</th>
     <th>{{ sortable('changed', t('table.changed'), t('table.changed_short')) }}</th>
     <th>{{ t('table.actions') }}</th>
   </tr></thead>
@@ -89,6 +91,7 @@
       <td class="mono hide-sm">{{ vid or (m['trailer'] and '?' or '-') }}</td>
       <td>{% if m['trailer_lang'] %}{{ m['trailer_lang']|upper }}{% else %}<span class="muted" title="{{ t('table.lang_unknown') }}">&ndash;</span>{% endif %}</td>
       <td><span class="state {{ m['state'] }}">{{ t('state.' + (m['state'] or 'pending')) }}</span></td>
+      <td class="small muted hide-sm message">{{ m['message'] or '' }}</td>
       <td class="small muted mono nowrap">
         <span class="wide">{{ m['last_changed']|ts }}</span>
         <span class="narrow">{{ m['last_changed']|ts_short }}</span>
@@ -111,7 +114,7 @@
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="9" class="empty">{{ t('table.empty') }}</td></tr>
+    <tr><td colspan="10" class="empty">{{ t('table.empty') }}</td></tr>
   {% endfor %}
   </tbody>
 </table>

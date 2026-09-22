@@ -151,6 +151,9 @@ footer {
 
 .muted { color: var(--muted); }
 .nowrap { white-space: nowrap; }
+/* A write failure carries a whole diagnosis; it may not stretch the table. */
+.message { max-width: 320px; overflow: hidden; text-overflow: ellipsis;
+           white-space: nowrap; }
 /* Same value, two widths: the year is dropped where space is short. */
 .narrow { display: none; }
 .url { background: #12161d; border: 1px solid var(--line); border-radius: 7px;

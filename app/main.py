@@ -535,6 +535,21 @@ def movie_check():
     return redirect(_back())
 
 
+PREVIEW_LIMIT = 25
+
+
+@app.route("/preview")
+@login_required
+def preview():
+    """What a run would change, before it changes anything."""
+    library_id = _optional_int(request.args.get("library"))
+    force = request.args.get("force") == "1"
+    limit = min(100, _positive_int(request.args.get("limit"), PREVIEW_LIMIT))
+    result = SCANNER.preview(limit=limit, library_id=library_id, force=force)
+    return render_template("preview.html", result=result, force=force,
+                           library_id=library_id, video_id=nfo.video_id_from)
+
+
 @app.route("/run", methods=["POST"])
 @login_required
 def run_now():
@@ -822,10 +837,18 @@ def settings_test():
     return redirect(url_for("settings_page"))
 
 
+LOG_LEVELS = ("error", "warn", "ok", "info")
+
+
 @app.route("/log")
 @login_required
 def log_page():
-    return render_template("log.html", entries=db.recent_log(300), runs=db.last_runs(10))
+    level = request.args.get("level", "")
+    if level not in LOG_LEVELS:
+        level = ""
+    return render_template("log.html", entries=db.recent_log(300, level or None),
+                           runs=db.last_runs(10), level=level, levels=LOG_LEVELS,
+                           counts=db.log_counts())
 
 
 @app.route("/health")

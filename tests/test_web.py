@@ -143,3 +143,46 @@ def test_the_running_version_is_on_every_page(client):
     sign_in(client)
     for path in ("/", "/settings", "/log"):
         assert VERSION in client.get(path).get_data(as_text=True)
+
+
+def test_the_log_can_be_filtered_by_level(client):
+    """The log used to be a flat list of everything, which is how an error sits
+    unnoticed between a hundred info lines."""
+    import db
+
+    sign_in(client)
+    db.log("error", "a write failed", "write")
+    db.log("info", "library read", "scan")
+
+    page = client.get("/log?level=error").get_data(as_text=True)
+    assert "a write failed" in page
+    assert "library read" not in page
+
+    everything = client.get("/log").get_data(as_text=True)
+    assert "a write failed" in everything and "library read" in everything
+
+
+def test_a_nonsense_log_level_shows_everything(client):
+    sign_in(client)
+    assert client.get("/log?level=;DROP TABLE log").status_code == 200
+
+
+def test_the_movie_list_can_show_only_problems(client, database, tmp_path):
+    """'no_trailer' is an answer, not a fault - it does not belong here."""
+    data = {"title": "X", "year": "", "tmdb": "1", "imdb": None, "trailer": "",
+            "kind": "movie"}
+    lib_id = database.add_library("Probe", str(tmp_path), "movie")
+    paths = {}
+    try:
+        for state in ("error", "no_id", "no_trailer", "ok"):
+            path = str(tmp_path / (state + ".nfo"))
+            paths[state] = path
+            database.upsert_movie(path, str(tmp_path), dict(data, title=state.upper()),
+                                  1.0, 10, library_id=lib_id)
+            database.mark_result(path, state, "message for " + state)
+
+        rows, _ = database.list_movies(state="problem", library_id=lib_id)
+        found = {r["state"] for r in rows}
+        assert found == {"error", "no_id"}
+    finally:
+        database.delete_library(lib_id)

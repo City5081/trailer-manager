@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="cardhead">
+    <h1>{{ t('preview.title') }}</h1>
+    <a class="close" title="{{ t('action.back') }}" href="{{ url_for('index') }}">&times;</a>
+  </div>
+  <p class="hint">{{ t('preview.hint') }}</p>
+
+  <div class="stats">
+    <div><b>{{ result.total }}</b><span>{{ t('preview.due') }}</span></div>
+    <div><b>{{ result.entries | selectattr('status', 'equalto', 'would_write') | list | length }}</b><span>{{ t('preview.would_write') }}</span></div>
+    <div><b>{{ result.entries | selectattr('status', 'equalto', 'ok') | list | length }}</b><span>{{ t('preview.unchanged') }}</span></div>
+    <div><b>{{ result.entries | selectattr('status', 'equalto', 'no_trailer') | list | length }}</b><span>{{ t('state.no_trailer') }}</span></div>
+    <div class="{% if result.entries | selectattr('status', 'equalto', 'error') | list | length %}bad{% endif %}"><b>{{ result.entries | selectattr('status', 'equalto', 'error') | list | length }}</b><span>{{ t('stats.errors') }}</span></div>
+  </div>
+
+  {% if result.total > result.shown %}
+    <p class="hint">{{ t('preview.sample') }}</p>
+  {% endif %}
+
+  <div class="toolbar">
+    <form method="post" action="{{ url_for('run_now') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      {% if force %}<input type="hidden" name="force" value="1">{% endif %}
+      <button class="primary" {% if busy %}disabled{% endif %}>{{ t('preview.go') }}</button>
+    </form>
+    <a class="btn" href="{{ url_for('index') }}">{{ t('action.back') }}</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="tablewrap">
+  <table>
+    <thead><tr>
+      <th>{{ t('table.title') }}</th><th class="hide-xs">{{ t('table.library') }}</th>
+      <th class="hide-sm">{{ t('preview.current') }}</th>
+      <th>{{ t('preview.result') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for entry in result.entries %}
+      <tr>
+        <td><a href="{{ url_for('movie_detail', path=entry.path) }}">{{ entry.title }}</a></td>
+        <td class="small muted hide-xs">{{ entry.library }}</td>
+        <td class="mono small hide-sm">{{ video_id(entry.current) or '&ndash;' | safe }}</td>
+        <td>
+          {% if entry.status == 'would_write' %}
+            <span class="state ok">{{ t('preview.would_write') }}</span>
+            <span class="mono small">{{ video_id(entry.message) or entry.message }}</span>
+          {% elif entry.status == 'ok' %}
+            <span class="state">{{ t('preview.unchanged') }}</span>
+          {% else %}
+            <span class="state {{ entry.status }}">{{ t('state.' + entry.status) }}</span>
+            <span class="small muted message">{{ entry.message }}</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">{{ t('preview.nothing') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}
