@@ -36,12 +36,17 @@ TIMEOUT = 20
 # of ignoring what they do not know, so each is tried in turn.
 #
 # The mode is "Default" and must stay that way. "FullRefresh" sends the server
-# back to its metadata providers, and with NFO saving enabled it then writes the
-# file again with the trailer IT picked - undoing the one we had just written a
-# second earlier. "Default" reads what is on disk and only fills in what is
-# missing, which is exactly the point: notice the trailer, change nothing else.
+# back to its metadata providers, and with metadata saving enabled it then
+# writes the NFO again with the trailer IT picked - undoing the one we had just
+# written. "Default" reads what is on disk and only fills in what is missing,
+# which is exactly the point: notice the trailer, change nothing else.
+#
+# ImageRefreshMode has no "None": asking for it is answered with
+# 400 "Requested value 'None' was not found." - measured against Emby 4.11.
+# Its values are ValidationOnly, Default and FullRefresh, and ValidationOnly is
+# the one that fetches nothing.
 REFRESH_PARAMS = (
-    {"MetadataRefreshMode": "Default", "ImageRefreshMode": "None",
+    {"MetadataRefreshMode": "Default", "ImageRefreshMode": "ValidationOnly",
      "ReplaceAllMetadata": "false", "ReplaceAllImages": "false"},
     {"MetadataRefreshMode": "Default", "ReplaceAllMetadata": "false"},
     {"MetadataRefreshMode": "Default"},

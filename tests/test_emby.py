@@ -93,7 +93,8 @@ def test_refresh_targets_the_right_item(monkeypatch):
     # Nothing may be replaced - a refresh must not undo what the user set.
     assert "ReplaceAllMetadata=false" in refresh["url"]
     assert "ReplaceAllImages=false" in refresh["url"]
-    assert "ImageRefreshMode=None" in refresh["url"]
+    # Not "None": Emby answers that with 400, having no such value for images.
+    assert "ImageRefreshMode=ValidationOnly" in refresh["url"]
 
 
 def test_the_refresh_never_asks_for_a_full_one(monkeypatch):
@@ -417,7 +418,7 @@ def test_a_refused_parameter_set_is_narrowed(monkeypatch):
 
     posts = [c["url"] for c in calls if c["method"] == "POST"]
     assert len(posts) == 3
-    assert "ImageRefreshMode" in posts[0]
+    assert "ImageRefreshMode=ValidationOnly" in posts[0]
     assert "ImageRefreshMode" not in posts[1]
     assert "ReplaceAllMetadata" not in posts[2]
     # Narrowing must never drop the mode itself and fall back to the
@@ -513,3 +514,13 @@ def test_the_reason_lists_the_libraries_that_were_searched(tmp_path, database):
         assert "Fernsehserien" in reason and "shows" in reason
     finally:
         database.delete_library(shows)
+
+
+def test_images_are_never_asked_for_with_a_value_emby_rejects(monkeypatch):
+    """Measured against Emby 4.11: ImageRefreshMode has no 'None', and asking
+    for it comes back as 400 'Requested value None was not found'. The metadata
+    mode does have one, which is what makes the mistake easy."""
+    for params in emby_mod.REFRESH_PARAMS:
+        assert params.get("ImageRefreshMode") in (None, "ValidationOnly",
+                                                  "Default", "FullRefresh")
+        assert params.get("ImageRefreshMode") != "None"
