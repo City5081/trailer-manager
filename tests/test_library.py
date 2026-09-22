@@ -282,3 +282,46 @@ def test_the_reason_is_logged_when_a_scan_finds_nothing(tmp_path, database):
         assert any("does not exist inside the container" in m for m in warnings)
     finally:
         database.delete_library(lib_id)
+
+
+def test_series_folders_without_an_nfo_are_named(tmp_path, database):
+    """Only tvshow.nfo is read for a series, so a folder without one is skipped
+    in silence - the show is absent from the list and nothing says why. That is
+    what happened to 'The Studio (2025)' among hundreds that were fine."""
+    shows = tmp_path / "shows"
+    for title in ("1883", "1923"):
+        (shows / title).mkdir(parents=True)
+        (shows / title / "tvshow.nfo").write_text(
+            '<tvshow><title>{}</title></tvshow>'.format(title), encoding="utf-8")
+    (shows / "The Studio (2025)" / "Season 01").mkdir(parents=True)
+    (shows / "The Studio (2025)" / "Season 01" / "E01.nfo").write_text(
+        "<episodedetails/>", encoding="utf-8")
+
+    lib_id = database.add_library("Fernsehserien", str(shows), "tv")
+    try:
+        result = scanner_mod.Scanner(settings()).scan_library(
+            database.get_library(lib_id), workers=2)
+        assert result["files"] == 2                      # the two with an NFO
+
+        warnings = [r["message"] for r in database.recent_log(10)
+                    if r["level"] == "warn" and r["source"] == "scan"]
+        assert any("The Studio (2025)" in m for m in warnings)
+        assert any("tvshow.nfo" in m for m in warnings)
+    finally:
+        database.delete_library(lib_id)
+
+
+def test_nothing_is_said_when_every_series_has_its_nfo(tmp_path, database):
+    shows = tmp_path / "ok-shows"
+    (shows / "1883").mkdir(parents=True)
+    (shows / "1883" / "tvshow.nfo").write_text("<tvshow/>", encoding="utf-8")
+
+    # A name of its own: the log is shared with every other test in the run.
+    lib_id = database.add_library("Quiet library", str(shows), "tv")
+    try:
+        scanner_mod.Scanner(settings()).scan_library(database.get_library(lib_id))
+        about_this_one = [r["message"] for r in database.recent_log(20)
+                          if r["level"] == "warn" and "Quiet library" in r["message"]]
+        assert about_this_one == []
+    finally:
+        database.delete_library(lib_id)

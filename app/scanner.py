@@ -290,7 +290,35 @@ class Scanner:
                .format(name, len(files), added, len(gone), time.time() - started), "scan")
         if not files:
             db.log("warn", self._empty_library_reason(name, root, kind), "scan")
+        elif kind == "tv":
+            self._report_series_without_nfo(name, root, present)
         return {"files": len(files), "changed": added, "removed": len(gone)}
+
+    def _report_series_without_nfo(self, name, root, present):
+        """Name the series folders that hold no tvshow.nfo.
+
+        Only that one file is read for a series, so a folder without it is
+        skipped without a word - the series is simply absent from the list and
+        nothing says why. That happens whenever the media server has not
+        written metadata for a show yet, which is easy to miss among hundreds
+        that have.
+        """
+        try:
+            folders = sorted(entry for entry in Path(root).iterdir()
+                             if entry.is_dir() and not entry.name.startswith("."))
+        except OSError:
+            return
+        missing = [folder.name for folder in folders
+                   if str(folder / nfo.TV_NFO_NAME) not in present]
+        if not missing:
+            return
+        shown = ", ".join(missing[:10])
+        if len(missing) > 10:
+            shown += " and {} more".format(len(missing) - 10)
+        db.log("warn", "{}: {} series folder(s) hold no {} and were skipped: {}. "
+                       "The media server writes that file when it saves metadata "
+                       "for the show.".format(name, len(missing), nfo.TV_NFO_NAME, shown),
+               "scan")
 
     def _empty_library_reason(self, name, root, kind):
         """Why a library came back with nothing.
