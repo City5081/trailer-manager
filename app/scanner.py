@@ -504,13 +504,13 @@ class Scanner:
     def _handle_new_item(self, item):
         """One newly added movie or series."""
         title = item.get("Name") or "?"
-        tmdb_id = (item.get("ProviderIds") or {}).get("Tmdb")
+        tmdb_id = _provider_id(item, "tmdb")
 
         rows = self._still_on_disk(db.find_by_tmdb(tmdb_id) if tmdb_id else [])
         if not rows:
             folder, lib = self._local_folder_for(item)
             if folder is None:
-                db.log("warn", "{} is not in any configured library".format(title), "emby")
+                db.log("warn", self._unmatched_reason(item, title), "emby")
                 return False
             rows = self._rows_for_path(str(folder), lib)
             if not rows:
@@ -548,6 +548,25 @@ class Scanner:
             db.delete_movie(row["path"])
         return keep
 
+    def _unmatched_reason(self, item, title):
+        """Say what was looked for and where, not just that it failed.
+
+        "is not in any configured library" gives nothing to act on. The folder
+        name and the libraries that were searched point straight at the two
+        usual causes: a share that is not mounted into this container, and a
+        library entered with the wrong kind.
+        """
+        kind = "tv" if item.get("Type") == "Series" else "movie"
+        wanted = _folder_name(item.get("Path"), kind) or "?"
+        searched = ["{} ({})".format(_row_value(lib, "name"), _row_value(lib, "path"))
+                    for lib in db.list_libraries(only_enabled=True)
+                    if (_row_value(lib, "kind") or "movie") == kind]
+        return ("{}: no {} library contains a folder named '{}'. Searched: {}. "
+                "The server reports it at {}"
+                .format(title, "TV" if kind == "tv" else "movie", wanted,
+                        ", ".join(searched) or "none",
+                        item.get("Path") or "(no path)"))
+
     def _local_folder_for(self, item):
         """Match an Emby item to a folder in our libraries.
 
@@ -555,14 +574,10 @@ class Scanner:
         sees /movies, so only the folder name can be compared. For a movie that
         is the folder holding the media file, for a series the series folder.
         """
-        emby_path = str(item.get("Path") or "").replace("\\", "/").rstrip("/")
-        if not emby_path:
-            return None, None
         kind = "tv" if item.get("Type") == "Series" else "movie"
-        parts = [p for p in emby_path.split("/") if p]
-        if not parts:
+        name = _folder_name(item.get("Path"), kind)
+        if not name:
             return None, None
-        name = parts[-1] if kind == "tv" else (parts[-2] if len(parts) > 1 else parts[-1])
 
         for lib in db.list_libraries(only_enabled=True):
             if (_row_value(lib, "kind") or "movie") != kind:
@@ -728,6 +743,34 @@ class Scanner:
 
         self._poller = threading.Thread(target=poller, daemon=True)
         self._poller.start()
+
+
+def _folder_name(server_path, kind):
+    """The folder a server path points at, as a bare name.
+
+    For a series the path is the series folder; for a movie it is the media
+    file inside one. Servers report their own paths, Windows shares included,
+    so the folder name is all the two sides have in common.
+    """
+    text = str(server_path or "").replace("\\", "/").rstrip("/")
+    parts = [p for p in text.split("/") if p]
+    if not parts:
+        return None
+    if kind == "tv":
+        return parts[-1]
+    return parts[-2] if len(parts) > 1 else parts[-1]
+
+
+def _provider_id(item, name):
+    """A provider id, whatever case the server spells the key in.
+
+    Movies come back with "Imdb", series with "IMDB"; assuming one spelling is
+    asking for a silent miss.
+    """
+    for key, value in (item.get("ProviderIds") or {}).items():
+        if key.lower() == name.lower() and value:
+            return str(value)
+    return None
 
 
 def _ancestors(folder, root):

@@ -228,10 +228,6 @@ def test_a_renamed_nfo_is_found_again_instead_of_written_to_its_old_path(tmp_pat
     new = folder / "The Goonies (1985) - WEBDL-1080p.nfo"
     old.rename(new)
 
-    item = {"Name": "Die Goonies", "Type": "Movie",
-            "ProviderIds": {"Tmdb": "9340"},
-            "Path": "/mnt/user/Filme/The Goonies (1985)/The Goonies (1985).mkv"}
-
     stale = db.find_by_tmdb("9340")
     assert [r["path"] for r in stale] == [str(old)]      # the database is behind
     assert s._still_on_disk(stale) == []                 # and the entry is dropped

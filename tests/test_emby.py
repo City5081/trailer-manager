@@ -457,3 +457,59 @@ def test_the_refresh_can_be_switched_off(monkeypatch):
     scanner = scanner_with(emby_refresh="0")
     assert scanner.notify_media_server({"title": "X"}, "550") is False
     assert calls == []
+
+
+# ------------------------------------------------- series, as a server sends them
+HELLSING = json.loads(r'''{"Name":"Hellsing Ultimate","Id":"388310",
+ "DateCreated":"2026-09-19T23:34:03.0000000Z",
+ "Path":"\\\\192.168.1.12\\Anime Serien\\Hellsing Ultimate (2006)",
+ "ProviderIds":{"Tvdb":"263688","IMDB":"tt0495212","Tmdb":"61752","AniDB":"3296"},
+ "IsFolder":true,"Type":"Series"}''')
+
+
+def test_a_series_folder_comes_from_the_last_path_segment(tmp_path, database):
+    """A series path IS the folder, unlike a movie path which is a file in one."""
+    (tmp_path / "Hellsing Ultimate (2006)").mkdir()
+    lib_id = database.add_library("Anime Serien", str(tmp_path), "tv")
+    try:
+        folder, lib = scanner_with()._local_folder_for(HELLSING)
+        assert folder == tmp_path / "Hellsing Ultimate (2006)"
+        assert lib["id"] == lib_id
+    finally:
+        database.delete_library(lib_id)
+
+
+def test_a_provider_id_is_read_whatever_case_the_server_uses():
+    """Movies come back with 'Imdb', series with 'IMDB'."""
+    import scanner as scanner_mod
+
+    assert scanner_mod._provider_id(HELLSING, "tmdb") == "61752"
+    assert scanner_mod._provider_id(HELLSING, "imdb") == "tt0495212"
+    assert scanner_mod._provider_id(HELLSING, "tvdb") == "263688"
+    assert scanner_mod._provider_id(HELLSING, "nowhere") is None
+
+
+def test_an_unmatched_item_says_what_was_looked_for(tmp_path, database):
+    """'not in any configured library' gives nothing to act on."""
+    for existing in database.list_libraries():
+        database.delete_library(existing["id"])
+    movies_only = database.add_library("Filme", str(tmp_path), "movie")
+    try:
+        reason = scanner_with()._unmatched_reason(HELLSING, "Hellsing Ultimate")
+        assert "Hellsing Ultimate (2006)" in reason      # the folder looked for
+        assert "Anime Serien" in reason                  # where the server has it
+        assert "Searched: none" in reason                # no TV library at all
+        assert "Filme" not in reason                     # a movie library is no help
+    finally:
+        database.delete_library(movies_only)
+
+
+def test_the_reason_lists_the_libraries_that_were_searched(tmp_path, database):
+    for existing in database.list_libraries():
+        database.delete_library(existing["id"])
+    shows = database.add_library("Fernsehserien", str(tmp_path / "shows"), "tv")
+    try:
+        reason = scanner_with()._unmatched_reason(HELLSING, "Hellsing Ultimate")
+        assert "Fernsehserien" in reason and "shows" in reason
+    finally:
+        database.delete_library(shows)
