@@ -35,11 +35,14 @@ TIMEOUT = 20
 # first. Emby and Jellyfin disagree about some of these and answer 400 instead
 # of ignoring what they do not know, so each is tried in turn.
 #
-# The mode is "Default" and must stay that way. "FullRefresh" sends the server
-# back to its metadata providers, and with metadata saving enabled it then
-# writes the NFO again with the trailer IT picked - undoing the one we had just
-# written. "Default" reads what is on disk and only fills in what is missing,
-# which is exactly the point: notice the trailer, change nothing else.
+# The mode is "Default" and must stay that way. Measured against a live Emby
+# 4.11 with the NFO saver enabled, writing a trailer and then refreshing:
+#
+#   Default      our trailer is read, adopted, and written back   -> survives
+#   FullRefresh  the server's own stored value is written back    -> ours is gone
+#
+# Both rewrite the file. Only FullRefresh discards what we put there, which is
+# what it did to a film called Vaiana on the way to finding this out.
 #
 # ImageRefreshMode has no "None": asking for it is answered with
 # 400 "Requested value 'None' was not found." - measured against Emby 4.11.

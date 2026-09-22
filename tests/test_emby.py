@@ -524,3 +524,21 @@ def test_images_are_never_asked_for_with_a_value_emby_rejects(monkeypatch):
         assert params.get("ImageRefreshMode") in (None, "ValidationOnly",
                                                   "Default", "FullRefresh")
         assert params.get("ImageRefreshMode") != "None"
+
+
+def test_the_refresh_mode_is_the_one_that_keeps_our_trailer(monkeypatch):
+    """Measured against a live Emby 4.11 with NFO saving on, by writing a
+    trailer and refreshing:
+
+        Default      ours is read, adopted and written back  -> survives
+        FullRefresh  the server's stored value is written     -> ours is gone
+
+    Both rewrite the file; only one of them keeps what we put there.
+    """
+    for params in emby_mod.REFRESH_PARAMS:
+        assert params["MetadataRefreshMode"] == "Default"
+
+    calls = recorder(monkeypatch, [LIBRARY, None])
+    emby_mod.Emby("http://emby", "k").refresh("550")
+    assert "MetadataRefreshMode=Default" in calls[1]["url"]
+    assert "FullRefresh" not in calls[1]["url"]
