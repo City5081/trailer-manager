@@ -1,5 +1,8 @@
 """Several libraries side by side: movies, anime films, TV shows."""
 
+import os
+import time
+
 import db
 import nfo
 import scanner as scanner_mod
@@ -325,3 +328,72 @@ def test_nothing_is_said_when_every_series_has_its_nfo(tmp_path, database):
         assert about_this_one == []
     finally:
         database.delete_library(lib_id)
+
+
+def test_a_trailer_changed_by_emby_is_checked_again(tmp_path, library, monkeypatch):
+    """Emby rewrites the NFO when it refreshes metadata and puts its own trailer
+    in ours. The entry used to stay at 'done' with a trailer nobody here chose,
+    and was never looked at again."""
+    folder = tmp_path / "Vaiana (2026)"
+    folder.mkdir()
+    path = folder / "Vaiana (2026).nfo"
+
+    def write(video_id, age=0):
+        path.write_text(
+            '<movie><title>Vaiana</title><uniqueid type="tmdb">1108427</uniqueid>'
+            '<trailer>plugin://plugin.video.youtube/play/?video_id={}</trailer>'
+            '</movie>'.format(video_id), encoding="utf-8")
+        # A YouTube id is always eleven characters, so swapping one leaves the
+        # file exactly as long. Only the timestamp gives the change away.
+        stamp = time.time() + age
+        os.utime(path, (stamp, stamp))
+
+    ours = "OyQPNSxZRIE"
+    write(ours)
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
+    db.mark_result(str(path), "ok", "written", trailer=nfo.format_link(ours),
+                   trailer_lang="de", written=True)
+    assert db.get_movie(str(path))["state"] == "ok"
+
+    # Untouched files do not disturb a finished entry.
+    s.scan_library(library, workers=2)
+    assert db.get_movie(str(path))["state"] == "ok"
+
+    # Emby refreshes and writes its own trailer into the file.
+    write("EEz5xbzYPKI", age=10)
+    s.scan_library(library, workers=2)
+    row = db.get_movie(str(path))
+    assert row["state"] == "pending"
+    assert "EEz5xbzYPKI" in row["trailer"]
+
+    # Which means the next run picks it up again.
+    pending = {r["path"] for r in db.pending_movies(30 * 86400, library_id=library["id"])}
+    assert str(path) in pending
+
+    monkeypatch.setattr(tmdb, "fetch_videos", lambda *a, **k: [
+        {"key": "dQw4w9WgXcQ", "lang": "de", "type": "Trailer",
+         "official": True, "site": "YouTube", "size": 1080}])
+    status, _ = s.process_movie(db.get_movie(str(path)))
+    assert status == "ok"
+    assert "dQw4w9WgXcQ" in nfo.parse_nfo(path)["trailer"]
+
+
+def test_the_change_is_reported(tmp_path, library, database):
+    folder = tmp_path / "Film (2020)"
+    folder.mkdir()
+    path = folder / "movie.nfo"
+    path.write_text('<movie><title>Film</title><trailer>plugin://a</trailer></movie>',
+                    encoding="utf-8")
+    s = scanner_mod.Scanner(settings())
+    s.scan_library(library, workers=2)
+
+    path.write_text('<movie><title>Film</title><trailer>plugin://b</trailer></movie>',
+                    encoding="utf-8")
+    later = time.time() + 10
+    os.utime(path, (later, later))
+    s.scan_library(library, workers=2)
+
+    warnings = [r["message"] for r in database.recent_log(10)
+                if r["level"] == "warn" and "changed by something else" in r["message"]]
+    assert warnings and "Film" in warnings[0]

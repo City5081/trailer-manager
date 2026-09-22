@@ -269,22 +269,38 @@ def list_notifiers(only_enabled=False):
 
 # --------------------------------------------------------------------- movies
 def upsert_movie(path, folder, data, mtime, size, library_id=None):
+    """Record what an NFO says. True when its trailer was changed by someone else.
+
+    A media server rewrites NFOs when it refreshes metadata, and puts its own
+    trailer in ours. Keeping the state as it was would leave the entry at "done"
+    with a trailer nobody here chose, and it would never be looked at again -
+    so a trailer that differs from the one on record sends it back to pending.
+    """
     now = time.time()
     with connect() as con:
+        row = con.execute("SELECT trailer, state FROM movies WHERE path=?",
+                          (path,)).fetchone()
+        replaced = row is not None and (row["trailer"] or "") != (data["trailer"] or "")
+
+        if row is None:
+            con.execute("""
+                INSERT INTO movies(path, library_id, folder, title, year, tmdb_id,
+                                   imdb_id, trailer, state, mtime, size,
+                                   first_seen, last_scanned)
+                VALUES(?,?,?,?,?,?,?,?,'pending',?,?,?,?)
+            """, (path, library_id, folder, data["title"], data["year"], data["tmdb"],
+                  data["imdb"], data["trailer"], mtime, size, now, now))
+            return False
+
         con.execute("""
-            INSERT INTO movies(path, library_id, folder, title, year, tmdb_id, imdb_id,
-                               trailer, state, mtime, size, first_seen, last_scanned)
-            VALUES(?,?,?,?,?,?,?,?,
-                   COALESCE((SELECT state FROM movies WHERE path=?), 'pending'),
-                   ?,?,?,?)
-            ON CONFLICT(path) DO UPDATE SET
-                library_id=excluded.library_id,
-                folder=excluded.folder, title=excluded.title, year=excluded.year,
-                tmdb_id=excluded.tmdb_id, imdb_id=excluded.imdb_id,
-                trailer=excluded.trailer, mtime=excluded.mtime, size=excluded.size,
-                last_scanned=excluded.last_scanned
-        """, (path, library_id, folder, data["title"], data["year"], data["tmdb"],
-              data["imdb"], data["trailer"], path, mtime, size, now, now))
+            UPDATE movies SET library_id=?, folder=?, title=?, year=?, tmdb_id=?,
+                              imdb_id=?, trailer=?, mtime=?, size=?, last_scanned=?,
+                              state=CASE WHEN ? THEN 'pending' ELSE state END
+            WHERE path=?
+        """, (library_id, folder, data["title"], data["year"], data["tmdb"],
+              data["imdb"], data["trailer"], mtime, size, now,
+              1 if replaced else 0, path))
+        return replaced
 
 
 def mark_result(path, state, message=None, trailer=None, trailer_lang=None, written=False):

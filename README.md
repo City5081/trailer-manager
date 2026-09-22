@@ -240,6 +240,9 @@ lines each.
 An automatic run picks up:
 
 - new entries, and entries whose NFO changed since last time
+- entries whose trailer was changed by something else — a media server that
+  refreshes metadata rewrites the NFO and puts its own trailer in yours, and the
+  entry would otherwise stay marked done with a trailer nobody here chose
 - entries without a trailer entry
 - entries that came back empty, once the last check is older than the recheck
   interval of their library (TMDB gains trailers all the time)

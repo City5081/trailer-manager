@@ -266,6 +266,7 @@ class Scanner:
             todo.append((path, mtime, size))
 
         added = 0
+        replaced = []
         if todo:
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 futures = {pool.submit(nfo.parse_nfo, p, kind): (p, m, s)
@@ -279,8 +280,9 @@ class Scanner:
                     except Exception:                      # noqa: BLE001
                         data = None
                     if data:
-                        db.upsert_movie(path, str(Path(path).parent), data, mtime, size,
-                                        library_id=lib_id)
+                        if db.upsert_movie(path, str(Path(path).parent), data, mtime,
+                                           size, library_id=lib_id):
+                            replaced.append(data["title"] or Path(path).parent.name)
                         added += 1
                     self.state["done"] += 1
                     self.state["current"] = "{}: {}".format(name, Path(path).parent.name)
@@ -288,6 +290,13 @@ class Scanner:
         gone = db.delete_missing(present, lib_id)
         db.log("info", "{}: {} NFOs, {} new or changed, {} removed, {:.1f}s"
                .format(name, len(files), added, len(gone), time.time() - started), "scan")
+        if replaced:
+            shown = ", ".join(sorted(replaced)[:10])
+            if len(replaced) > 10:
+                shown += " and {} more".format(len(replaced) - 10)
+            db.log("warn", "{}: the trailer was changed by something else in {} "
+                           "entries - they will be checked again: {}"
+                   .format(name, len(replaced), shown), "scan")
         if not files:
             db.log("warn", self._empty_library_reason(name, root, kind), "scan")
         elif kind == "tv":
