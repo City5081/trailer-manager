@@ -243,3 +243,42 @@ def test_an_entry_that_is_still_there_is_kept(tmp_path, library, movie_nfo):
     rows = db.find_by_folder(str(movie_nfo.parent))
     assert rows
     assert [r["path"] for r in s._still_on_disk(rows)] == [str(movie_nfo)]
+
+
+def test_an_empty_library_says_why(tmp_path):
+    """'0 NFOs' reads past easily and names no cause. The three that matter
+    look the same from outside: no volume, wrong volume, no NFOs."""
+    s = scanner_mod.Scanner(settings())
+
+    missing = s._empty_library_reason("Fernsehserien", str(tmp_path / "nope"), "tv")
+    assert "does not exist inside the container" in missing
+    assert "volume mounted" in missing
+
+    empty = tmp_path / "leer"
+    empty.mkdir()
+    assert "is empty inside the container" in s._empty_library_reason("X", str(empty), "tv")
+
+    # Folders are there, but no tvshow.nfo in them.
+    shows = tmp_path / "shows"
+    (shows / "Hellsing Ultimate (2006)" / "Season 01").mkdir(parents=True)
+    (shows / "Hellsing Ultimate (2006)" / "Season 01" / "E01.nfo").write_text(
+        "<episodedetails/>", encoding="utf-8")
+    reason = s._empty_library_reason("Fernsehserien", str(shows), "tv")
+    assert "tvshow.nfo" in reason
+    assert "1 entries" in reason
+    assert "save metadata into the media folders" in reason
+
+    movies = tmp_path / "movies"
+    (movies / "Film (2020)").mkdir(parents=True)
+    assert "*.nfo" in s._empty_library_reason("Filme", str(movies), "movie")
+
+
+def test_the_reason_is_logged_when_a_scan_finds_nothing(tmp_path, database):
+    lib_id = database.add_library("Leer", str(tmp_path / "gibt-es-nicht"), "tv")
+    try:
+        scanner_mod.Scanner(settings()).scan_library(database.get_library(lib_id))
+        warnings = [r["message"] for r in database.recent_log(10)
+                    if r["level"] == "warn" and r["source"] == "scan"]
+        assert any("does not exist inside the container" in m for m in warnings)
+    finally:
+        database.delete_library(lib_id)

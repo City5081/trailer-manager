@@ -288,7 +288,36 @@ class Scanner:
         gone = db.delete_missing(present, lib_id)
         db.log("info", "{}: {} NFOs, {} new or changed, {} removed, {:.1f}s"
                .format(name, len(files), added, len(gone), time.time() - started), "scan")
+        if not files:
+            db.log("warn", self._empty_library_reason(name, root, kind), "scan")
         return {"files": len(files), "changed": added, "removed": len(gone)}
+
+    def _empty_library_reason(self, name, root, kind):
+        """Why a library came back with nothing.
+
+        "0 NFOs" is easy to read past and says nothing about the cause. The
+        three that matter look identical from the outside: a volume that was
+        never mounted, a folder that is empty inside the container, and a
+        library full of folders that simply hold no NFO of the kind we look
+        for - which for a series is tvshow.nfo, and only exists when the media
+        server was told to save metadata into the media folders.
+        """
+        folder = Path(root)
+        if not folder.is_dir():
+            return ("{}: nothing read - the folder {} does not exist inside the "
+                    "container. Is the volume mounted?".format(name, root))
+        try:
+            entries = list(folder.iterdir())
+        except OSError as e:
+            return "{}: nothing read - {} cannot be listed ({})".format(name, root, e)
+        if not entries:
+            return ("{}: nothing read - {} is empty inside the container, even though "
+                    "it exists. A volume pointing at the wrong place looks like "
+                    "this.".format(name, root))
+        looked_for = nfo.TV_NFO_NAME if kind == "tv" else "*.nfo"
+        return ("{}: nothing read - {} holds {} entries but no {}. For series the "
+                "media server only writes those when it is set to save metadata "
+                "into the media folders.".format(name, root, len(entries), looked_for))
 
     # ------------------------------------------------------------- single entry
     def process_movie(self, row, force=False):
