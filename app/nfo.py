@@ -98,6 +98,22 @@ def ensure_lockdata(root):
     return False
 
 
+def read_tree(path):
+    """Parse an NFO, tolerating padding a writer left behind.
+
+    A file on a network share can read back as intact XML followed by NUL
+    bytes - a client's view of a file being rewritten elsewhere. A strict
+    parser rejects that outright, and the entry then vanishes from the list
+    with no explanation, which is a poor trade for content that is plainly well
+    formed.
+    """
+    raw = Path(path).read_bytes()
+    trimmed = raw.rstrip(b"\x00 \t\r\n")
+    if len(trimmed) != len(raw):
+        return ET.ElementTree(ET.fromstring(trimmed.decode("utf-8", "replace"))), True
+    return ET.ElementTree(ET.fromstring(raw.decode("utf-8", "replace"))), False
+
+
 class WriteError(RuntimeError):
     """Write failure with a plain language cause."""
 
@@ -158,13 +174,15 @@ def _perm_hint(path):
 def write_trailer(nfo_path, value, lockdata=False, backup=True):
     """Write a trailer link into an NFO. Returns True when something changed."""
     nfo_path = Path(nfo_path)
-    tree = ET.parse(nfo_path)
+    tree, was_padded = read_tree(nfo_path)
     root = tree.getroot()
     changed = set_trailer(root, value)
     if lockdata and value:
         changed = ensure_lockdata(root) or changed
-    if not changed:
+    if not changed and not was_padded:
         return False
+    # Padding is worth rewriting even when the trailer itself did not change:
+    # the file is not valid XML until it is gone.
 
     if backup:
         bak = nfo_path.with_suffix(nfo_path.suffix + ".bak")
@@ -295,8 +313,8 @@ def parse_nfo(path, kind=None):
     library.
     """
     try:
-        root = ET.parse(path).getroot()
-    except (ET.ParseError, OSError):
+        root = read_tree(path)[0].getroot()
+    except (ET.ParseError, OSError, ValueError):
         return None
     found_kind = ROOT_KINDS.get(root.tag)
     if found_kind is None or (kind is not None and found_kind != kind):

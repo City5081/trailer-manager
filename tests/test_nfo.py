@@ -169,3 +169,39 @@ def test_titles_starting_with_dots_are_not_mistaken_for_hidden_folders(tmp_path)
     found = [p for p, _m, _s in nfo.walk_nfo_files(tmp_path)]
     assert len(found) == 2
     assert not any(".AppleDouble" in p for p in found)
+
+
+def test_padding_after_the_closing_tag_is_tolerated(movie_nfo):
+    """Seen over SMB while a file was being rewritten elsewhere: intact XML
+    followed by 450 NUL bytes. A strict parser rejects that and the entry
+    vanishes from the list with no explanation."""
+    link = nfo.format_link("dQw4w9WgXcQ")
+    nfo.write_trailer(movie_nfo, link, backup=False)
+
+    with open(movie_nfo, "ab") as handle:
+        handle.write(b"\x00" * 450)
+
+    data = nfo.parse_nfo(movie_nfo)
+    assert data is not None
+    assert data["trailer"] == link
+
+
+def test_writing_clears_the_padding(movie_nfo):
+    """Once noticed, the file is left valid rather than merely readable."""
+    nfo.write_trailer(movie_nfo, nfo.format_link("dQw4w9WgXcQ"), backup=False)
+    with open(movie_nfo, "ab") as handle:
+        handle.write(b"\x00" * 100)
+
+    # Same value as before: without the padding this would be a no-op.
+    assert nfo.write_trailer(movie_nfo, nfo.format_link("dQw4w9WgXcQ"),
+                             backup=False) is True
+    assert b"\x00" not in movie_nfo.read_bytes()
+
+    import xml.etree.ElementTree as ET
+    ET.parse(movie_nfo)                      # strict parsers accept it again
+
+
+def test_a_genuinely_broken_file_is_still_refused(tmp_path):
+    broken = tmp_path / "broken.nfo"
+    broken.write_text("<movie><title>no end tag", encoding="utf-8")
+    assert nfo.parse_nfo(broken) is None
